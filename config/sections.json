@@ -1,0 +1,49 @@
+{
+ "_doc": "Configuration of the medfig pipeline. Units: mm in MNI ICBM2009b-sym space unless the key says otherwise.",
+ "source": {
+  "volume": "full8_100um_2009b_sym.nii.gz",
+  "planes_npz": "data/bigbrain_coronal_100um_sel.npz",
+  "candidate_y_mm": [24, 16, 8, 0, -8, -16, -22, -28, -36, -56, -64, -72],
+  "license": "BigBrain (Amunts et al., Science 2013), CC BY-NC-SA 4.0"
+ },
+ "sections": [
+  {"k": 1, "y_mm": 8,   "label": "frontal lobe and striatum",     "block": "putamen",              "block_mm": [-24.0, 4.0]},
+  {"k": 2, "y_mm": -22, "label": "thalamus and hippocampus",      "block": "hippocampus",          "block_mm": [-27.0, -14.0]},
+  {"k": 3, "y_mm": -64, "label": "occipital lobe and cerebellum", "block": "cerebellar hemisphere", "block_mm": [-26.0, -40.0]}
+ ],
+ "raster": {
+  "downsample": 3,
+  "tissue_blur_sigma": 1.0,
+  "tissue_max_intensity": 238,
+  "tissue_min_object_px": 400,
+  "tissue_max_hole_px": 60,
+  "local_mean_sigma": 1.2,
+  "otsu_floor": 140,
+  "wm_offset": 4,
+  "wm_min_object_px": 40,
+  "wm_max_hole_px": 40,
+  "mask_round_sigma": 1.6,
+  "wm_min_island_px": 120
+ },
+ "vector": {
+  "pad_units": 24,
+  "contour_sigma": 1.6,
+  "dp_epsilon": 0.35,
+  "min_contour_points": 12,
+  "block_units": 82,
+  "outline_width": 4.4
+ },
+ "palette": {"grey_matter": "#ecc6e3", "white_matter": "#7aa6dc", "outline": "#5b43a8", "accent": "#5b43a8",
+             "accent_ink": "#ffffff", "glass": "#f1f4fa", "glass_edge": "#c4b2ee", "label": "#e2deee", "page": "#faf9f5"},
+ "stack_3d": {
+  "perspective_px": 1000,
+  "perspective_origin": "20% 30%",
+  "transform_origin": "45% 55%",
+  "case": {"translate_x": "38%", "rotate_y_deg": 42, "rotate_x_deg": 6, "scale": 0.82, "depth_step_px": 95},
+  "phone": {"max_width_px": 900, "translate_x": "20%", "rotate_y_deg": 46, "scale": 0.6, "depth_step_px": 55},
+  "start_depth_px": -420,
+  "section_delay_s": [0, 0.12, 0.26],
+  "marker_delay_s": [0.35, 0.62, 0.76],
+  "back_filter": ["none", "saturate(.82) brightness(1.03)", "saturate(.66) brightness(1.06)"]
+ }
+}

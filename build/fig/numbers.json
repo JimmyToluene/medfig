@@ -1,0 +1,50 @@
+{
+ "example_y_mm": -22,
+ "planes_shape": [
+  12,
+  1890,
+  1970
+ ],
+ "raw_px": [
+  1970,
+  1890
+ ],
+ "down_px": [
+  656,
+  630
+ ],
+ "tissue_changed_px": 290,
+ "example_otsu": 198.5,
+ "example_threshold": 194.5,
+ "thresholds": [
+  {
+   "y_mm": 8,
+   "otsu_all": 190.9,
+   "otsu_floor": 197.3
+  },
+  {
+   "y_mm": -22,
+   "otsu_all": 197.2,
+   "otsu_floor": 198.5
+  },
+  {
+   "y_mm": -64,
+   "otsu_all": 137.9,
+   "otsu_floor": 191.4
+  }
+ ],
+ "contour_points_raw": 6373,
+ "contour_points_simplified": 902,
+ "viewBox": [
+  0,
+  0,
+  523,
+  525
+ ],
+ "mm_per_unit": 0.3,
+ "svg_kb": {
+  "section_1.svg": 47.1,
+  "section_2.svg": 49.7,
+  "section_3.svg": 55.7
+ }
+}

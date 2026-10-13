@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+out/
+build/frames/
+build/*.gif
+report/*.aux
+report/*.log
+report/*.out
+report/*.fdb_latexmk
+report/*.fls
+report/*.toc
+report/*.synctex.gz
+*.nii.gz
+*.mnc
