@@ -1,8 +1,8 @@
-# medfig: Python 3.10 or newer. All packages have wheels for x86_64 and aarch64 Linux (DGX Spark is aarch64).
+# medfig: Python 3.11 or newer. All packages have wheels for x86_64 and aarch64 Linux (DGX Spark is aarch64).
 numpy>=1.26
-scipy>=1.11
-scikit-image>=0.24
+scipy>=1.11.4
+scikit-image>=0.26    # remove_small_objects(max_size=...) and remove_small_holes(max_size=...) are new in 0.26; 0.26 needs Python 3.11
 matplotlib>=3.8
-pillow>=10.0
-playwright>=1.45      # only for `medfig render`; after install: python -m playwright install chromium
+pillow>=10.1
+playwright>=1.45      # only for `medfig render` and `medfig mri render`; after install: python -m playwright install chromium
 pytest>=8.0           # only for `make test`

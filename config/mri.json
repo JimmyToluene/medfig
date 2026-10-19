@@ -1,0 +1,52 @@
+{
+ "_doc": "Configuration of the medfig MRI pipeline (skull-stripped brain). Units: mm in MNI152 space unless the key or this note says otherwise. In raster and vector, pixels (px) are 0.5 mm. mask_round_sigma and dp_epsilon are in pixels. contour_sigma and min_contour_points are in contour points. pad_units, roi_units and outline_width are in frame units; one frame unit is unit_mm. In stack_3d, px are CSS pixels of the page. orientation: radiological (the left of the patient on the right of the image, as in clinical viewers) or neurological (left on the left, as in the WSI figure).",
+ "orientation": "radiological",
+ "source": {
+  "name": "holiAtlas v1.0",
+  "url": "https://volbrain.net/public/data/holiatlas_v1.0.zip",
+  "volumes": {"t1w": "T1w_average.nii.gz", "tissue": "tissue_atlas.nii.gz", "structure": "structure_atlas.nii.gz"},
+  "planes_npz": "data/holiatlas_coronal_500um_sel.npz",
+  "candidate_y_mm": [64, 56, 48, 40, 32, 24, 16, 8, 0, -8, -16, -22, -24, -32, -40, -48, -56, -64, -72, -80, -88, -96],
+  "license": "holiAtlas (Manjón et al., Sci Rep 2026), CC BY-NC-SA 4.0"
+ },
+ "slices": [
+  {"k": 1, "y_mm": 8,   "label": "frontal lobe and striatum",     "roi": "left putamen",               "roi_labels": [33]},
+  {"k": 2, "y_mm": -22, "label": "thalamus and hippocampus",      "roi": "left hippocampus",           "roi_labels": [21]},
+  {"k": 3, "y_mm": -64, "label": "occipital lobe and cerebellum", "roi": "left cerebellar hemisphere", "roi_labels": [45, 51]}
+ ],
+ "tissue_labels": {
+  "_doc": "Labels of tissue_atlas.nii.gz. grey_matter and white_matter are the labels drawn in each class; every other label inside the mask is drawn as CSF.",
+  "names": {"1": "CSF", "2": "cortical GM", "3": "cerebral WM", "4": "deep GM", "5": "cerebellar GM", "6": "cerebellar WM", "7": "brainstem", "8": "WM lesion", "9": "vessels and connective tissue"},
+  "grey_matter": [2, 4, 5],
+  "white_matter": [3, 6, 7, 8]
+ },
+ "raster": {
+  "mask_close_px": 8,
+  "mask_round_sigma": 1.0,
+  "min_object_px": 30,
+  "roi_min_px": 40
+ },
+ "vector": {
+  "unit_mm": 0.3,
+  "pad_units": 24,
+  "contour_sigma": 1.6,
+  "dp_epsilon": 0.25,
+  "min_contour_points": 12,
+  "roi_units": 82,
+  "outline_width": 4.4
+ },
+ "palette": {"csf": "#6f6a8a", "grey_matter": "#a9a6bd", "white_matter": "#e6e4f0",
+             "outline": "#5b43a8", "accent": "#5b43a8", "accent_ink": "#ffffff", "card": "#f1f4fa", "card_edge": "#c4b2ee",
+             "label": "#e2deee", "label_bar": "#a9a6bd", "screen": "#2b2640", "page": "#faf9f5"},
+ "stack_3d": {
+  "perspective_px": 1000,
+  "perspective_origin": "20% 30%",
+  "transform_origin": "45% 55%",
+  "case": {"translate_x": "38%", "rotate_y_deg": 42, "rotate_x_deg": 6, "scale": 0.82, "depth_step_px": 95},
+  "phone": {"max_width_px": 900, "translate_x": "20%", "rotate_y_deg": 46, "scale": 0.6, "depth_step_px": 55},
+  "start_depth_px": -420,
+  "section_delay_s": [0, 0.12, 0.26],
+  "marker_delay_s": [0.35, 0.62, 0.76],
+  "back_filter": ["none", "saturate(.82) brightness(1.03)", "saturate(.66) brightness(1.06)"]
+ }
+}

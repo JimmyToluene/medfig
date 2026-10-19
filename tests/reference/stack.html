@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coronal stack</title>
+<style>
+body{margin:0;background:#faf9f5;font:15px Lora,Georgia,serif;color:#141413}
+main{max-width:760px;margin:0 auto;padding:48px 24px}
+.mode{display:inline-flex;gap:24px;border-bottom:1px solid #e8e6dc;margin-bottom:24px}
+.mode button{all:unset;cursor:pointer;padding:4px 0 7px;color:#73726c}
+.mode button[aria-pressed=true]{color:#141413;box-shadow:inset 0 -2px #141413}
+.hero{position:relative;display:grid;grid-template-columns:45.6% 1fr;align-items:end;gap:0}
+.att{display:grid;margin-left:-14%;padding:12px;background:#fff;border-radius:8px;box-shadow:0 3px 3px rgba(0,0,0,.25);width:max-content;max-width:100%;min-width:0;box-sizing:border-box}
+.att>img{grid-area:1/1;max-width:100%;height:auto;transition:opacity .3s ease}
+@media (max-width:600px){main{padding:32px 16px}.hero{grid-template-columns:1fr}.hero .brainbox{width:62%}.att{margin:16px 0 0}}
+.att .strip{opacity:0}.is-case .att .one{opacity:0}.is-case .att .strip{opacity:1}
+small{display:block;margin-top:28px;color:#5f5b70;font-size:12.5px}
+:root{--accent:#5b43a8;--accent-ink:#ffffff;--ease:cubic-bezier(.2,.7,.2,1)}
+.brainbox{position:relative;width:100%;perspective:1000px;perspective-origin:20% 30%}
+.stack{position:relative;display:grid;transform-style:preserve-3d;transform-origin:45% 55%;transition:transform .75s var(--ease) .05s}
+.csec{grid-area:1/1;display:grid;transform-style:preserve-3d;transition:transform .7s var(--ease),opacity .4s ease,filter .4s ease}
+.csec>*{grid-area:1/1;width:100%;height:auto}
+.mk{transform-box:fill-box;transform-origin:center;transition:opacity .38s var(--ease),transform .5s var(--ease)}
+.bd{opacity:0;transform:scale(.6);transition:opacity .3s var(--ease),transform .45s var(--ease)}
+.is-case .stack{transform:translateX(38%) rotateY(42deg) rotateX(6deg) scale(0.82);transition-delay:0s}
+.is-case .mk,.is-case .bd{opacity:1;transform:none}
+.cs2,.cs3{opacity:0;transform:translateZ(-420px)}
+.cs2 .mk,.cs3 .mk{opacity:0;transform:scale(.82)}
+.cs2{transition-delay:0.06s}
+.is-case .cs2{opacity:1;transform:translateZ(-95px);filter:saturate(.82) brightness(1.03);transition-delay:0.12s}
+.cs3{transition-delay:0s}
+.is-case .cs3{opacity:1;transform:translateZ(-190px);filter:saturate(.66) brightness(1.06);transition-delay:0.26s}
+.is-case .cs1 .bd{transition-delay:0.35s}
+.is-case .cs2 .mk,.is-case .cs2 .bd{transition-delay:0.62s}
+.is-case .cs3 .mk,.is-case .cs3 .bd{transition-delay:0.76s}
+@media (max-width:900px){.is-case .stack{transform:translateX(20%) rotateY(46deg) rotateX(6deg) scale(0.6)}.is-case .cs2{transform:translateZ(-55px)}.is-case .cs3{transform:translateZ(-110px)}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
+</style></head>
+<body><main>
+<div class="mode" role="group" aria-label="Input"><button data-mode="slide" aria-pressed="true">Slide-level</button><button data-mode="case" aria-pressed="false">Case-level</button></div>
+<div class="hero" id="hero"><div class="brainbox"><div class="stack"><div class="csec cs3"><img src="section_3.svg" alt=""><svg viewBox="0 0 523 525" aria-hidden="true"><g class="mk"><rect x="134.7" y="384.3" width="82" height="82" rx="10" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="12 8"/></g><g class="bd"><circle cx="134.7" cy="384.3" r="21" fill="var(--accent)"/><text x="134.7" y="394.3" text-anchor="middle" font-size="28" font-weight="700" fill="var(--accent-ink)" font-family="Lora, Georgia, serif">3</text></g></svg></div><div class="csec cs2"><img src="section_2.svg" alt=""><svg viewBox="0 0 523 525" aria-hidden="true"><g class="mk"><rect x="131.3" y="297.7" width="82" height="82" rx="10" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="12 8"/></g><g class="bd"><circle cx="131.3" cy="297.7" r="21" fill="var(--accent)"/><text x="131.3" y="307.7" text-anchor="middle" font-size="28" font-weight="700" fill="var(--accent-ink)" font-family="Lora, Georgia, serif">2</text></g></svg></div><div class="csec cs1"><img src="section_1.svg" alt=""><svg viewBox="0 0 523 525" aria-hidden="true"><g class="mk"><rect x="141.3" y="237.7" width="82" height="82" rx="10" fill="none" stroke="var(--accent)" stroke-width="5" stroke-dasharray="12 8"/></g><g class="bd"><circle cx="141.3" cy="237.7" r="21" fill="var(--accent)"/><text x="141.3" y="247.7" text-anchor="middle" font-size="28" font-weight="700" fill="var(--accent-ink)" font-family="Lora, Georgia, serif">1</text></g></svg></div></div></div><div class="att"><img class="one" src="slide_one.svg" alt="One attached slide"><img class="strip" src="slide_strip.svg" alt="Attached slides 1 to 3"></div></div>
+<small>Coronal sections y = +8, -22, -64 mm, drawn from BigBrain (Amunts et al., Science 2013), CC BY-NC-SA 4.0. The sections and blocks are a schematic, not a cutting plan.</small>
+</main>
+<script>
+var hero=document.getElementById("hero"),bs=[].slice.call(document.querySelectorAll(".mode button"));
+bs.forEach(function(b){b.addEventListener("click",function(){bs.forEach(function(x){x.setAttribute("aria-pressed",x===b?"true":"false")});hero.classList.toggle("is-case",b.dataset.mode==="case")})});
+</script></body></html>

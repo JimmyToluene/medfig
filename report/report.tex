@@ -24,14 +24,15 @@
 \lstset{basicstyle=\ttfamily\small,backgroundcolor=\color{codebg},frame=none,columns=fullflexible,breaklines=true,
         keepspaces=true,xleftmargin=4pt,aboveskip=6pt,belowskip=6pt}
 \setlist{itemsep=1pt,topsep=3pt}
+\setlength{\emergencystretch}{2em}   % long code words in the text: allow looser lines, not overfull ones
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\step}[1]{\textbf{\color{accent}#1}}
 \input{numbers.tex}
 
-\title{\textbf{medfig}: flat coronal brain figures from BigBrain\\and an oblique 3D section stack\\[4pt]
+\title{\textbf{medfig}: flat coronal brain figures\\from histology (BigBrain), MRI (holiAtlas),\\CT and amyloid PET templates\\[4pt]
 \large Methods report and reproduction guide}
 \author{Kolachalama Laboratory, Boston University\\\small Prepared with Claude for the neuropathology VLM demo}
-\date{13 October 2026 \quad$\cdot$\quad medfig 0.1.0}
+\date{14 October 2026 \quad$\cdot$\quad medfig 0.3.0}
 
 \begin{document}
 \maketitle
@@ -43,21 +44,60 @@ publication-style figures of coronal brain sections, and that animates three suc
 The pipeline reads whole coronal planes out of the 1.1~GB compressed volume without loading it, separates grey from white matter
 with a per-section threshold, converts the masks into smoothed vector outlines, places every section in one shared frame with
 anatomically placed block markers, and derives slide icons whose tissue matches each block. Every step is a Python module, every
-parameter is in one JSON file, and every number quoted below is written by the pipeline itself (\code{report/numbers.tex}).
+parameter is in one JSON file per modality, and every number quoted below is written by the pipeline itself (\code{report/numbers.tex}).
 The figures are a schematic: they do not show the Boston University cutting plan or BU block locations.
+
+\smallskip\noindent
+Version 0.2.0 added MRI. A second pipeline draws coronal slices of the \emph{skull-stripped} brain from the holiAtlas
+\mVoxel~mm template. It takes the brain mask and the tissue classes from the label maps of the template, not from intensity
+thresholds. It uses the same vector code and the same unit (\mUnit~mm) as the WSI pipeline, so the two figures
+are a pair. At the planes that the two modalities share, the MRI brain mask and the WSI tissue mask overlap with a Dice
+coefficient of \mDiceMin{} to \mDiceMax.
+
+\smallskip\noindent
+Version 0.3.0 adds CT and amyloid PET, and draws the three scanner modalities (MRI, CT, PET) in the radiological orientation:
+the left of the patient is on the right of the image, as in clinical viewers. The CT figure shows the skull as a white ring
+around the intracranial space on a dark screen. It comes from a CT template in Hounsfield units, and its intracranial space
+matches the holiAtlas intracranial volume with a Dice coefficient of \ctDiceIcvMin{} to \ctDiceIcvMax. The PET figure shows
+the uptake as nested bands of SUVR inside the MRI brain outline, for an amyloid-negative and an amyloid-positive florbetaben
+template. MRI, CT and PET share one pixel grid, one unit and one set of marker positions, so the four modalities pair.
+All figures show templates. They do not show a patient or a measurement.
 \end{abstract}
 
-\section{Purpose and scope}
+\section{Purpose and scope}\label{s:scope}
 The landing page of the lab's neuropathology vision-language-model demo shows how the model is asked about one slide
 (\emph{slide level}) or about all slides of a case (\emph{case level}). The illustration needs (i) a coronal section with one
 sampled block, and (ii) for the case level, several sections of one brain, each with its own block, in a view that reads as 3D
 and that switches smoothly from (i). An earlier version reused one drawn section three times, so the three sections looked the same.
 medfig replaces it with real anatomy: three different coronal planes of one brain, drawn in the flat style of the page.
 
-\paragraph{Out of scope.} medfig does not reproduce a stain (BigBrain uses a Merker cell-body stain, not H\&E or LFB-H\&E),
-does not register to BU material, and makes no quantitative claim about any region.
+\paragraph{MRI (version 0.2.0).} The page also needs the same kind of figure for MRI: one slice, or the slices of one
+volume, each with one marker. medfig 0.2.0 added MRI as a second modality with its own modules (\code{medfig/mri/}) and its
+own configuration file. The MRI figure shows the \emph{skull-stripped} brain. This view fits a clinical figure: skull
+stripping is a standard first step of brain MRI analysis, so the figure shows the brain as most analysis pipelines pass it to
+a model. Scalp and skull are not drawn.
 
-\section{Data}
+\paragraph{CT and PET (version 0.3.0).} medfig 0.3.0 adds the last two of the four modalities (WSI, MRI, CT and PET). The CT
+figure keeps the skull: a white bone ring around the brain on a dark screen. A skull-stripped CT does not read as CT, so the
+user chose this design. The PET figure shows amyloid PET as bands of uptake inside the brain outline. It comes as a pair, an
+amyloid-negative and an amyloid-positive template, drawn with the same bands and colours, so the pair shows where the uptake
+differs. Each modality has its own modules (\code{medfig/ct/}, \code{medfig/pet/}) and its own configuration file.
+
+\paragraph{The product of the scanner modalities.} For MRI, CT and PET the product is the flat SVG slice, with its marker
+and its scan thumbnail. The oblique 3D stack is a WSI idea: glass slides of one case, at slide level and at case level. For
+scans it is not the same thing, and medfig does not develop it for them. The scanner modalities have a stack page only
+because they reuse the shared page code (Section~\ref{s:limits}). None of the scanner figures is on the landing page.
+
+\paragraph{Orientation.} MRI, CT and PET are drawn in the radiological orientation: the left of the patient ($x<0$) is on the
+right of the image, as in clinical viewers. The key \code{orientation} of each configuration file sets it. The user chose it.
+WSI keeps the left of the brain on the left of the image (neurological orientation), as a section is seen on the slide.
+
+\paragraph{Out of scope.} medfig does not reproduce a stain (BigBrain uses a Merker cell-body stain, not H\&E or LFB-H\&E),
+does not register to BU material, and makes no quantitative claim about any region. medfig does not skull-strip or segment a
+scan, and it does not quantify amyloid. It draws published templates: the MRI classes come from the labels of a template, the
+CT classes from fixed Hounsfield-unit thresholds on a template, and the PET bands from fixed SUVR edges on two group templates.
+
+\section{Data}\label{s:data}
 \textbf{BigBrain} \cite{amunts2013} is a 3D reconstruction of one human brain from 7404 Merker-stained sections.
 medfig uses the release in ICBM2009b symmetric space \cite{fonov2011} at \SI{100}{\micro\metre}, 8-bit
 (\nolinkurl{full8_100um_2009b_sym.nii.gz}, $1970\times2330\times1890$ voxels, 1.1~GB compressed, about 8.7~GB raw).
@@ -68,15 +108,93 @@ in a comment and is shared under the same licence.
 In Merker stain, cell bodies are dark. Grey matter is therefore \emph{darker} than white matter, the cerebellar granular layer is
 nearly black, and glass is white (255).
 
+\textbf{holiAtlas} v1.0 \cite{manjon2026} is a multimodal MRI template of the human brain with dense label maps. It is built
+from the T1w and T2w scans (3~T, \SI{0.7}{\milli\metre}) of 75 subjects of the Human Connectome Project \cite{vanessen2013}, on
+a \mVoxel~mm grid in MNI152 space. The release (\nolinkurl{holiatlas_v1.0.zip}, 186~MB) holds three templates (T1w, T2w and a
+synthetic white-matter-nulled contrast, WMn) and label maps at several levels of detail. medfig reads three volumes of
+$\mVolX\times\mVolY\times\mVolZ$ voxels: \nolinkurl{T1w_average.nii.gz},
+\nolinkurl{tissue_atlas.nii.gz} (tissue labels 1 to 9; 0 means no tissue label) and
+\nolinkurl{structure_atlas.nii.gz} (one label per structure). The repository holds
+\nolinkurl{data/holiatlas_coronal_500um_sel.npz} (\mPlanesMB~MB): \mNPlanes{} whole coronal planes of these three volumes from
+$y=\mYFirst$ to $\mYLast$~mm (Section~\ref{s:m1}). The full volumes are not in the repository.
+CT and PET use these planes too: their grid, the structure labels for the markers, and (PET) the brain mask and the
+reference region.
+
+In a T1-weighted image, white matter is brighter than grey matter and CSF is dark. Only the figures of this report show the
+T1w image. The SVG slices are drawn from the labels.
+
+\paragraph{Licence of holiAtlas.} The zip has no licence file. The sources do not agree on the licence. The journal article
+\cite{manjon2026} says only that the data are ``under a Creative Commons license''. The first version of the preprint
+(arXiv:2501.16879v1, Usage Notes) states CC~BY-NC-SA~4.0. The Zenodo record of holiAtlas holds the same zip under
+CC~BY~4.0. medfig keeps CC~BY-NC-SA~4.0, the stricter of the two statements, for the planes file and for every MRI figure.
+Every derived SVG and page carries the credit. Section~\ref{s:licence} gives the links.
+
+\medskip\noindent
+\textbf{Clinical Toolbox CT template} \cite{rorden2012} is an average head CT in MNI space. It is part of the Clinical
+Toolbox for SPM (\url{https://github.com/neurolabusc/Clinical}). medfig uses the file
+\nolinkurl{Tutorial/high_res/scct_unsmooth.nii} of that repository (commit \code{1b6bc35}): $\ctVolX\times\ctVolY\times\ctVolZ$
+voxels of \ctVolVs~mm, values in Hounsfield units (HU). Its header puts it in MNI space as it is, and medfig applies no shift.
+The scans of the template were contrast-enhanced, so the vessels and the venous sinuses are brighter than the brain. The volume
+ends at $z=\ctZMin$~mm, above the lower edge of the holiAtlas grid. The repository holds
+\nolinkurl{data/clinical_ct_coronal_500um_sel.npz} (\ctPlanesMB~MB): the same \ctNPlanes{} planes as the MRI planes file, on its
+grid, with the HU and the intracranial mask (Section~\ref{s:c1}).
+
+In CT the values are calibrated: air is about $-1000$~HU, water 0~HU, brain tissue a few tens of HU, and bone several hundred
+HU or more. Bone is bright, the brain is mid grey and CSF is darker than the brain.
+
+\paragraph{Licence of the CT template.} The sources state two licences. The repository has a BSD 2-Clause licence (copyright
+2021 Chris Rorden); \nolinkurl{data/LICENSE-clinical-ct.txt} is a copy of it, as its second condition asks. The 2012 article
+\cite{rorden2012} says that the scripts and images are released under the GNU General Public License, version~2 or later.
+Both licences allow redistribution. medfig shares the CT planes file under the BSD 2-Clause licence of the repository, and the
+CT figures, which also carry holiAtlas marker positions, under CC~BY-NC-SA~4.0.
+
+\medskip\noindent
+\textbf{rPOP templates} \cite{iaccarino2022}. rPOP (robust PET-only processing) is a method for amyloid PET scans of many
+sites. Its repository (\url{https://github.com/LeoIacca/rPOP}) ships PET templates in MNI space for three amyloid tracers, each
+as an amyloid-negative and an amyloid-positive template. medfig uses the two florbetaben templates,
+\nolinkurl{templates/Template_FBB_neg.nii} and \nolinkurl{templates/Template_FBB_pos.nii} (commit \code{0f6af1c}):
+$\petVolX\times\petVolY\times\petVolZ$ voxels of \petNativeVs~mm. The templates are means of PET scans of the Alzheimer's
+Disease Neuroimaging Initiative (ADNI). The repository holds \nolinkurl{data/rpop_fbb_coronal_2mm_sel.npz} (\petPlanesMB~MB): the
+same \petNPlanes{} planes of both templates on their native grid, and the reference mean of each (Section~\ref{s:p1}).
+
+In amyloid PET with florbetaben, amyloid plaques raise the uptake in the cortex. White matter takes up the tracer in every scan
+(non-specific binding), so white matter is bright in both templates. In an amyloid-negative scan the cortex is darker than
+the white matter; in an amyloid-positive scan the cortex is bright too, and the contrast between grey and white matter falls.
+
+\paragraph{Licence of the rPOP templates.} The repository states CC~BY-NC-SA~4.0 and use for academic and research purposes,
+without warranty. The templates are means of ADNI scans. No document was found that says whether ADNI agreed to this
+redistribution of means of its scans; the user accepted this open point (14 October 2026). medfig shares the PET planes file
+and the PET figures under CC~BY-NC-SA~4.0, for research use only. Ask the rPOP authors before a use outside research.
+
 \section{Pipeline overview}
+Figure~\ref{f:overview} and Table~\ref{t:steps} show the WSI pipeline. Each scanner modality has eight steps: MRI M1 to M8
+(Section~\ref{s:mri}, Table~\ref{t:msteps}), CT C1 to C8 (Section~\ref{s:ct}, Table~\ref{t:csteps}) and PET P1 to P8
+(Section~\ref{s:pet}, Table~\ref{t:psteps}). Table~\ref{t:modalities} compares the four modalities.
+
+The scanner modalities share \code{medfig/scan.py}: the orientation, the grid of a plane, the frame, the markers, the SVG text,
+the scan thumbnails, the stack page and the captures. CT and PET read the MRI planes file: its grid, its structure labels (for
+the markers) and, for PET, its brain mask. A CT, PET and MRI slice of the same $y$ therefore share every pixel, and their
+markers are at the same place in millimetres.
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}l >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.1cm} l@{}}\toprule
+Modality & Source & What a slice shows & Classes from & Output\\\midrule
+WSI & BigBrain (one brain) & grey and white matter, neurological orientation & a threshold per section & \code{out/}\\
+MRI & holiAtlas (template) & skull-stripped brain: CSF, grey and white matter & labels of the template & \code{out/mri/}\\
+CT & Clinical Toolbox CT template & bone ring, intracranial space and CSF on a dark screen & HU thresholds & \code{out/ct/}\\
+PET & rPOP florbetaben templates (\petNSeries) & SUVR bands inside the MRI brain outline & SUVR band edges & \code{out/pet/<series>/}\\\bottomrule
+\end{tabularx}
+\caption{The four modalities. MRI, CT and PET use the radiological orientation and the grid of the MRI planes file.}\label{t:modalities}
+\end{table}
+
 \begin{figure}[H]
 \centering\includegraphics[width=\linewidth]{pipeline_overview.png}
-\caption{The nine steps. S1 runs once on the full volume; S2--S9 run from the planes file in seconds. Worked example: $y=\vExampleY$~mm.}
+\caption{The nine steps of WSI. S1 runs once on the full volume; S2--S9 run from the planes file in seconds. Worked example: $y=\vExampleY$~mm.}
 \label{f:overview}
 \end{figure}
 
 \begin{table}[H]\centering\small
-\begin{tabularx}{\linewidth}{@{}l l X l@{}}\toprule
+\begin{tabularx}{\linewidth}{@{}l l >{\raggedright\arraybackslash}X l@{}}\toprule
 Step & Module & What it does & Output\\\midrule
 S1 & \code{extract} & stream coronal planes out of the volume & \code{data/*.npz}\\
 S2 & \code{sections.plane} & flip, block-mean downsample & raster\\
@@ -88,10 +206,10 @@ S7 & \code{sections.build} & SVG drawing & \code{out/section\_k.svg}\\
 S8 & \code{icons} & slide icons cut at each block & \code{out/slide\_*.svg}\\
 S9 & \code{web}, \code{render} & oblique 3D stack page, frames, end states & \code{out/stack.html}, \code{build/}\\\bottomrule
 \end{tabularx}
-\caption{Steps, modules and outputs. Run all with \code{make all}.}
+\caption{WSI steps, modules and outputs. Run all with \code{make all}.}\label{t:steps}
 \end{table}
 
-\section{Methods}
+\section{WSI: sections from BigBrain}\label{s:wsi}
 
 \subsection{S1 --- Streaming coronal planes}\label{s:s1}
 A NIfTI-1 file stores voxels with $x$ varying fastest, then $y$, then $z$. A coronal plane (fixed $y$) is therefore one row in each
@@ -161,7 +279,7 @@ and the two classes before rounding.}\end{figure}
 $k$ & $y$ & Section & Block & Centre $(x,z)$ & Otsu, all & Otsu, $s>f$ & $t$\\\midrule
 \SectionRows
 \bottomrule\end{tabularx}
-\caption{Sections, block positions and thresholds. $y$ and block centres are in MNI millimetres; $x<0$ is drawn on the left of the image.}
+\caption{Sections, block positions and thresholds. $y$ and block centres are in MNI millimetres; $x<0$ is drawn on the left of the image (neurological orientation).}
 \label{t:thr}\end{table}
 
 \subsection{S5 --- Rounding, tracing and simplifying}
@@ -173,7 +291,7 @@ and white-matter islands smaller than \vWIsl{} px are dropped. Outlines are trac
 \cite{lorensen1987,vanderwalt2014} on the mask padded by one pixel (so contours at the image edge close). Each closed contour
 $\{(x_n,y_n)\}_{n=0}^{N-1}$ is smoothed with a circular Gaussian,
 \begin{equation}
-\tilde x_n = \sum_{m} g_m\, x_{(n-m)\bmod N},\qquad g_m \propto e^{-m^2/2\sigma_c^2},\quad \sigma_c=\vCSig,
+\tilde x_n = \sum_{m} g_m\, x_{(n-m)\bmod N},\qquad g_m \propto e^{-m^2/2\sigma_c^2},\quad \sigma_c=\vCSig,\label{e:smooth}
 \end{equation}
 and simplified with the Douglas--Peucker algorithm \cite{douglas1973} at tolerance $\varepsilon=\vEps$ units. On the worked example,
 all tissue contours go from \vPtsRaw{} to \vPtsSimple{} vertices.
@@ -215,22 +333,567 @@ $d=\vPersp$~px. The section stack gets the transform
 and section $k$ sits at depth $z_k = -\vDz\,(k-1)$~px inside it. A point at depth $z$ (towards the viewer positive) is projected
 with scale factor $d/(d-z)$, so the back sections look smaller and fan out to the left. At slide level the back sections wait at
 $z=\vZStart$~px with opacity 0. On the switch, the stack turns first, then the back sections slide forward one after the other,
-then each block marker appears (Table~\ref{t:timing}). Below \vPhMax~px width the values change to $\mathrm{T}_x(\vPhTx)$,
+then each block number appears (Table~\ref{t:timing}). At \vPhMax~px width and below the values change to $\mathrm{T}_x(\vPhTx)$,
 $\mathrm{R}_y(\vPhRy^\circ)$, $\mathrm{S}(\vPhSc)$, depth step \vPhDz~px. \code{prefers-reduced-motion} turns all motion off.
 
 \begin{table}[H]\centering\small
 \begin{tabular}{@{}l c c c@{}}\toprule
  & Section 1 & Section 2 & Section 3\\\midrule
 Section starts to move (s) & \SectionDelays\\
-Block marker appears (s) & \MarkerDelays\\\bottomrule
+Block number appears (s) & \MarkerDelays\\\bottomrule
 \end{tabular}
 \caption{Timing after a switch to case level. The stack turn takes 0.75~s, each section 0.7~s.}\label{t:timing}\end{table}
 
 \begin{figure}[H]\centering\includegraphics[width=\linewidth]{frame_sheet.png}
-\caption{S9: slide level, case level at 150, 400, 700 and 1400~ms, and back to slide level (\code{out/stack.html}, 900~px wide).}\end{figure}
+\caption{S9: slide level, case level at 150, 400, 700 and 1400~ms, and back to slide level (\code{out/stack.html}, 900~px wide).
+At this width the page uses the narrow-width values.}\end{figure}
+
+
+\section{MRI: skull-stripped slices from holiAtlas}\label{s:mri}
+The MRI pipeline makes the same kind of figure as the WSI pipeline: flat coronal outlines in one frame, with one marker per
+slice. Four choices define it.
+
+\paragraph{Skull-stripped.} The figure shows the brain only. Skull stripping (brain extraction) is a standard first step of
+brain MRI analysis, so the figure shows the brain as most analysis pipelines pass it to a model. This view fits a clinical
+figure better than the whole head. Scalp and skull are not drawn.
+
+\paragraph{Labels, not thresholds.} The template ships label maps. medfig reads the brain mask and the tissue classes from
+these labels. It uses no intensity threshold, and the T1w image plays no part in the SVG slices. An earlier test with one
+intensity threshold on a \SI{100}{\micro\metre} ex vivo MRI scan failed: the brightness varies across the slice, so one
+threshold does not separate the tissues everywhere.
+
+\paragraph{Radiological orientation.} The left of the patient is on the right of the image, as in clinical viewers
+(\code{orientation} = \mOrientation{} in \code{config/mri.json}). The value \code{neurological} draws the left on the left,
+as WSI does. Sections~M2 and M5 give the effect on the grid and on the frame. CT and PET use the same code.
+
+\paragraph{Shared code and unit.} \code{medfig/vector.py} traces a mask, smooths the contour and writes the SVG path data for
+every modality (\code{contours}, \code{smooth\_contour}, \code{path\_d}). The scanner modalities also use its
+\code{round\_mask}: WSI rounds its masks in \code{sections.round\_masks}. \code{medfig/scan.py} holds the code that MRI, CT and
+PET share: the orientation, the grid, the frame, the markers, the SVG text, the thumbnails and the stack page. The scanner
+modalities read their volumes with the NIfTI reader \code{medfig/nifti.py}: WSI streams its volume in \code{extract}.
+One unit is \mUnit~mm, as in the WSI figure (\vMmPerUnit~mm), so a WSI section and an MRI slice have the same scale on a page.
+
+\medskip\noindent The worked example is slice~\mExampleK{} ($y=\mExampleY$~mm).
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}l l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.7cm}@{}}\toprule
+Step & Module & What it does & Output\\\midrule
+M1 & \code{extract} & cut planes out of three volumes & \code{data/*.npz}\\
+M2 & \code{slices.plane} & flip: rows superior to inferior; columns in the orientation & rasters\\
+M3 & \code{slices.classes} & brain mask and classes from the labels & masks\\
+M4 & \code{slices.rounded}, \code{vector} & round, trace, smooth, simplify & polygons\\
+M5 & \code{slices.build}, \code{scan} & one frame; markers at label centroids & \code{out/mri/slices.json}\\
+M6 & \code{slices.build} & SVG drawing & \code{out/mri/slice\_k.svg}\\
+M7 & \code{icons}, \code{web} & scan thumbnails; stack page (reuse) & \code{out/mri/scan\_*.svg}, \code{out/mri/stack.html}\\
+M8 & \code{figures}, \code{render} & report figures and values; page frames & \code{build/fig/mri\_*}\\\bottomrule
+\end{tabularx}
+\caption{MRI steps, modules and outputs. The modules are in \code{medfig/mri/}; \code{vector} and \code{scan} are shared.
+\code{make mri} runs M2 to M8 from the planes file. \code{make mri-extract} runs M1.}\label{t:msteps}
+\end{table}
+
+\subsection{M1 --- Coronal planes from the template}\label{s:m1}
+Each volume of the template fits in memory, so \code{mri.extract} loads it whole and needs no streaming. The reader
+(\code{medfig/nifti.py}) returns the voxels with $x$, $y$ and $z$ ascending in millimetres, and the position of voxel 0.
+With $y_0$ the $y$ of voxel row 0 and $\Delta_v$ the voxel size (\mVoxel~mm), the row of a plane at $y$~mm is
+\begin{equation}
+j(y) = \operatorname{round}\!\left(\frac{y - y_0}{\Delta_v}\right).
+\end{equation}
+The script cuts the same rows out of three volumes: the T1w average, the tissue labels and the structure labels. It stops with
+an error if the three volumes are not on one grid, if a plane is outside the volume, if a $y$ is not on the voxel grid, or if
+a value does not fit the integer type of the output. The planes file holds \mNPlanes{} planes of $\mPlaneW\times\mPlaneH$ pixels.
+The planes are stored as in the volume, with $x$ ascending. The run takes about one second on the lab DGX Spark. Only
+\code{numpy} is needed.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_step_1_candidates.png}
+\caption{M1: the \mNPlanes{} candidate planes of the T1w average, with the whole head, in the radiological orientation. The
+planes used are framed and ticked: $y=\mSliceYs$~mm.}\end{figure}
+
+\subsection{M2 --- Orientation}\label{s:m2}
+Each plane is flipped so that rows run superior to inferior. Then the columns are put in the configured orientation
+(\code{scan.orient}). In the radiological orientation the columns are reversed: $x$ falls from one column to the next, and the
+left hemisphere ($x<0$) is on the right of the image. There is no downsampling: one pixel is \mVoxel~mm.
+In medfig a grid is four numbers $(x_0, z_0, \Delta_v, \delta_x)$: the $x$ of column 0, the $z$ of row 0, the pixel size and the
+signed $x$ step from one column to the next,
+\begin{equation}
+\delta_x = s\,\Delta_v,\qquad s = \begin{cases}-1 & \text{radiological},\\ +1 & \text{neurological.}\end{cases}
+\end{equation}
+Pixel $(r,c)$ is at $x = x_0 + c\,\delta_x$ and $z = z_0 - r\,\Delta_v$. Here $x_0=\mXZero$~mm, $z_0=\mZTop$~mm and
+$\delta_x=\mXStep$~mm: column 0 is on the right side of the patient.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_step_2_strip.png}
+\caption{M2 and M3 on the worked example: the T1w plane with the whole head (2a; R and L mark the right and the left of the
+patient), the tissue labels of the template (2b), and the T1w image inside the brain mask of step M3 (2c). Panel 2c is for this
+report only: the SVG slices do not use the T1w image.}
+\label{f:mstrip}\end{figure}
+
+\subsection{M3 --- Skull stripping and tissue classes from the labels}\label{s:m3}
+Let $t$ be the tissue label of a pixel; $t=0$ means that the pixel has no tissue label. The configuration gives two label lists:
+grey matter $L_G$ = \mGmLabels, and white matter $L_W$ = \mWmLabels. Three masks follow from the labels,
+\begin{equation}
+W = [\,t\in L_W\,],\qquad B = [\,t\in L_G\cup L_W\,],\qquad I = \operatorname{fill}\,[\,t>0\,],
+\end{equation}
+and the brain mask is
+\begin{equation}
+M = B \,\vee\, \big(\operatorname{fill}(\operatorname{close}_r(B)) \wedge I\big),\qquad r=\mClose~\text{px}.\label{e:mmask}
+\end{equation}
+$W$ is white matter, and $B$ is grey and white matter together. $I$ is the set of labelled pixels, with enclosed unlabelled
+pockets filled. This report calls $I$ the intracranial volume. $\operatorname{close}_r$ is a
+binary closing: $r$ dilations, then $r$ erosions, each with the 4-neighbour element ($r=\mClose$~px is \mCloseMm~mm). It closes
+the sulci and the cisterns, so the CSF in them is inside the mask. $\operatorname{fill}$ fills the holes, so the ventricles are
+inside too. The term $\wedge\,I$ limits the result to $I$. The term $B\,\vee$ keeps every grey- and
+white-matter pixel in the mask.
+
+The figure has three classes: white matter $W$, grey matter $B\setminus W$, and CSF $M\setminus B$. A pixel of the mask that is
+not grey or white matter is drawn as CSF. The labels \mOtherLabels{} are in neither list. Scalp and skull have no tissue label
+and lie outside $I$, so they are never in the mask. The mask does not hold the whole CSF label either: the CSF between the
+brain surface and the skull stays outside, so the outline follows the brain surface.
+
+On the worked example, \mIcvPx{} px have a tissue label ($t>0$) and the mask covers \mMaskPx{} px. The closing and the hole
+filling add \mCloseAdded{} px (\mCloseAddedMm~mm$^2$) to grey and white matter. The limit $I$ cuts \mIcvCut{} px there; it cuts
+most at $y=\mIcvCutMaxY$~mm (\mIcvCutMax{} px).
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_step_3_classes.png}
+\caption{M3 on the worked example: grey and white matter from the labels (3a); the brain mask with the pixels that the closing and
+the hole filling add (blue), the pixels that the limit cuts (red) and the intracranial volume (dotted) (3b); the three classes before rounding (3c).}\end{figure}
+
+\subsection{M4 --- Rounding, tracing and simplifying}\label{s:m4}
+Each of the three masks is blurred and cut at one half, as in S5:
+\begin{equation}
+M' = \big[\,G_{\mRSig} * M > 0.5\,\big].
+\end{equation}
+Objects of at most \mMinObj{} px are dropped. Then each layer is cut to the layer below it, so that
+$W'\subseteq B'\subseteq M'$ and no fill shows outside the outline. Tracing, smoothing and simplifying are the functions of S5:
+marching squares at level 0.5 on the padded mask, the circular Gaussian of Eq.~(\ref{e:smooth}) with $\sigma_c=\mCSig$, and
+Douglas--Peucker at tolerance $\varepsilon=\mEps$~px (\mEpsUnits{} units). Contours of fewer than \mMinPts{} points are dropped.
+On the worked example, the contours of the mask go from \mPtsRaw{} to \mPtsSimple{} vertices, and the contours of the three
+layers together from \mPtsRawAll{} to \mPtsSimpleAll.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_step_4_contours.png}
+\caption{M4, zoom on the dorsal cortex at the midline: pixel masks, rounded masks, and the traced (grey), smoothed and simplified
+(purple) outline of the mask.}\end{figure}
+
+\subsection{M5 --- One frame and markers}\label{s:m5}
+All slices use one scale and one frame. The unit is $\Delta=\mUnit$~mm, so one pixel is $\Delta_v/\Delta=\mUnitsPerPx$ units.
+The frame is the bounding box of the union of the rounded masks, padded by \mPad{} units (rounded to whole pixels). It gives a
+$\mVbW\times\mVbH$ viewBox. With $(o_x,o_y)$ the frame origin in pixels, the top left corner of the frame is at
+\begin{equation}
+x_{\mathrm{left}} = x_0 + o_x\,\delta_x,\qquad z_{\mathrm{top}} = z_0 - o_y\,\Delta_v,
+\end{equation}
+here $(\mFrameX,\,\mFrameZ)$~mm. In the radiological orientation $x_{\mathrm{left}}$ is positive: the left edge of the frame
+lies on the right side of the patient. A point $(x,z)$ in millimetres maps to viewBox units by
+\begin{equation}
+u = s\,\frac{x - x_{\mathrm{left}}}{\Delta},\qquad v = \frac{z_{\mathrm{top}} - z}{\Delta},\label{e:mframe}
+\end{equation}
+with $s=\mXSign$ here. \code{slices.json} holds $(x_{\mathrm{left}},z_{\mathrm{top}})$ as \code{frame\_mm}, $\Delta$ as
+\code{mm\_per\_unit} and the orientation as \code{orientation}, so a host page can place an MNI coordinate on a slice with
+Eq.~(\ref{e:mframe}). The scale is the scale of the WSI figure. The frame is not: each modality has the bounding box of its own masks.
+
+\paragraph{Markers.} Each slice names a set $R$ of labels of the structure atlas (\code{roi\_labels}). The marker centre is the
+centroid of the pixels $P$ of the plane that have a label in $R$:
+\begin{equation}
+(\bar r,\bar c) = \frac{1}{|P|}\sum_{p\in P}(r_p,c_p),\qquad x = x_0+\bar c\,\delta_x,\quad z = z_0-\bar r\,\Delta_v.
+\end{equation}
+The marker is a square of \mRoi{} units (\mRoiMm~mm), centred on $(x,z)$ through Eq.~(\ref{e:mframe}). If $P$ has fewer than
+\mRoiMin{} px, the build stops with an error. A slice without \code{roi\_labels} gets no marker. The centroid belongs to one
+plane: it is not the centre of the 3D structure. The markers name left structures, so they lie on the right of the image.
+Table~\ref{t:mslices} lists the slices, the centroids and the class areas.
+\begin{figure}[H]\centering\includegraphics[width=.7\linewidth]{mri_step_5_frame.png}
+\caption{M5: the mask outlines of the slices in the shared frame, with the midline. R and L mark the sides of the patient.
+Dashed squares are the markers. The shaded area is the label set of each marker and the dot is its centroid. A cross is the
+hand-set WSI block centre of the same plane, placed with the same orientation (Section~\ref{s:m8}).}\label{f:mframe}\end{figure}
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}c r >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.6cm} c r r r r@{}}\toprule
+$k$ & $y$ & Slice & Marker & Centroid $(x,z)$ & Mask & CSF & Grey & White\\\midrule
+\mSliceRows
+\bottomrule\end{tabularx}
+\caption{MRI slices, markers and class areas. $y$ and the centroids are in MNI millimetres ($x<0$: the left of the patient). The
+areas are in mm$^2$ and come from the rounded masks; CSF, grey and white matter add up to the mask. They describe the drawing of
+a template, not a measurement of a person.}\label{t:mslices}\end{table}
+
+\subsection{M6 --- SVG drawing}
+Each slice is one SVG with four paths, from back to front: the brain mask in the CSF colour
+(\colorbox{mCsf}{\strut\ \color{white}\mColCsf\ }), grey matter (\colorbox{mGm}{\strut\ \mColGm\ }), white matter
+(\colorbox{mWm}{\strut\ \mColWm\ }), and the outline of the mask (\textcolor{mLine}{\mColLine}, width \mOutline{} units). The
+fills use the even-odd rule. The CSF colour shows where no grey or white matter covers the mask: in the sulci, the cisterns and
+the ventricles. The colours are a drawing convention with the order of a T1w image (CSF dark, white matter light). They are not
+T1w intensities. Each SVG carries the credit ``\mLicense'' in a comment. Sizes: \mSvgSizes.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_step_6_svgs.png}
+\caption{M6: the SVG slices with their markers. The markers of the left structures are on the right of each slice.}\end{figure}
+
+\subsection{M7 --- Scan thumbnails and the stack page}
+\paragraph{Thumbnails.} The card next to the stack shows the attached scans. Scan $k$ is a dark rounded square with the whole
+slice $k$ in it. An inner \code{<svg>} with the \code{viewBox} of the slices draws the slice, so thumbnail and slice always
+match. A WSI slide icon (S8) is cut at the block. A scan thumbnail is not cut at the marker: it shows the whole slice.
+\code{scan.icons} makes the thumbnails of MRI, CT and PET.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_step_7_icons.png}
+\caption{M7: one scan (Slice) and the strip of scans with the deck behind (Volume).}\end{figure}
+
+\paragraph{Stack page.} \code{mri.web} builds \code{out/mri/stack.html} with \code{scan.web}, which uses the CSS, the markup and
+the page template of S9 (\code{medfig/stack.py}). The page is a reuse of the WSI page: it was made for the glass slides of
+one case, and medfig does not develop it for scans (Section~\ref{s:scope}). The two states are \emph{Slice} (slice 1 with its
+marker) and \emph{Volume} (all slices in the oblique view). The stack fans the back slices out to the left, and the markers of
+the left structures are on the right of the image, so in Volume the markers and numbers of the back slices are hidden behind the
+slice in front. Only slice 1 shows its number and its marker square (Section~\ref{s:limits}, item~\ref{l:stackscan}). The values
+are in the block \code{stack\_3d} of \code{config/mri.json}: perspective $d=\mPersp$~px, transform
+$\mathrm{T}_x(\mTx)\,\mathrm{R}_y(\mRy^\circ)\,\mathrm{R}_x(\mRx^\circ)\,\mathrm{S}(\mSc)$, depth step \mDz~px, start depth
+$\mZStart$~px. At \mPhMax~px width and below they are $\mathrm{T}_x(\mPhTx)$, $\mathrm{R}_y(\mPhRy^\circ)$, $\mathrm{S}(\mPhSc)$
+and \mPhDz~px. The frame sheet, the end states and the GIF are captured at 900~px. At this width they show these
+narrow-width values. No step captures the wide layout. Table~\ref{t:mtiming} gives the timing.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}l c c c@{}}\toprule
+ & Slice 1 & Slice 2 & Slice 3\\\midrule
+Slice starts to move (s) & \mSliceDelays\\
+Number appears (s) & \mMarkerDelays\\\bottomrule
+\end{tabular}
+\caption{Timing after a switch to Volume.}\label{t:mtiming}\end{table}
+
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_frame_sheet.png}
+\caption{M7: Slice, Volume at 150, 400, 700 and 1400~ms, and back to Slice (\code{out/mri/stack.html}, 900~px wide).
+At this width the page uses the narrow-width values. In Volume only slice 1 shows its number and its marker: the markers of the
+back slices are behind the slice in front.}\end{figure}
+
+\subsection{M8 --- Report figures, and the pairing with WSI}\label{s:m8}
+\code{mri.figures} makes the figures of M1 to M5 and the pairing figure. It writes the values that this section quotes to
+\code{build/fig/mri\_numbers.json}. \code{mri.render} opens the page in Chromium and captures the frames, the frame sheet, the
+end states and the figures of M6 and M7. Each panel calls the same functions as the pipeline.
+
+\paragraph{Pairing.} \mNShared{} of the \mNSlices{} MRI slices are at the $y$ of a WSI section. For each of these planes,
+Figure~\ref{f:mpair} draws the MRI brain mask and the WSI tissue outline in the same millimetre coordinates. The overlap of two
+masks $A$ and $B$ is the Dice coefficient \cite{dice1945},
+\begin{equation}
+D = \frac{2\,|A\cap B|}{|A|+|B|}.
+\end{equation}
+$A$ is the rounded MRI brain mask. $B$ is the rounded WSI tissue mask, copied to the pixel grid of the MRI plane (nearest
+neighbour). Each WSI pixel is placed at the centre of the block of voxels that it averages (S2). The WSI grid has $x$ ascending
+(neurological), the MRI grid $x$ descending: the copy goes through millimetres, so the orientation does not change $D$.
+$D$ is \mDiceMin{} to \mDiceMax{} (Table~\ref{t:mpair}). The two masks differ by design: the MRI mask is closed over
+the sulci, and the WSI tissue mask leaves the sulci and the ventricles open. The last column of the table therefore gives $D$
+for MRI grey and white matter only. The two brains also differ: BigBrain is one brain, and holiAtlas is an average of many.
+The values show that the two figures have about the same size and the same place in MNI space. They are not the result of a
+registration.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{mri_step_8_pairing.png}
+\caption{M8: the MRI brain mask (filled) and the WSI tissue outline (line) at the shared planes, in MNI millimetres. The $x$ axis
+runs from the right of the patient ($+x$) to the left ($-x$), as on the slices. Each title gives the Dice coefficient of the two
+masks.}\label{f:mpair}\end{figure}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}c r r r c c@{}}\toprule
+$k$ & $y$ & MRI mask (mm$^2$) & WSI tissue (mm$^2$) & $D$, MRI mask & $D$, MRI grey and white\\\midrule
+\mPairRows
+\bottomrule\end{tabular}
+\caption{Pairing of the MRI slices with the WSI sections of the same $y$: mask areas and Dice coefficients.}\label{t:mpair}\end{table}
+
+\paragraph{Block centres and atlas centroids.} The WSI block centres were set by hand from general MNI anatomy
+(Section~\ref{s:limits}, item~\ref{l:blocks}). The MRI markers are centroids of atlas labels. Table~\ref{t:mblocks} and
+Figure~\ref{f:mframe} compare the two at the shared planes. The distances are \mDistMin{} to \mDistMax~mm. For \mInBlock{}
+planes the atlas centroid lies inside the WSI marker square (half side \mBlkHalf~mm). The comparison is approximate: the two
+brains differ, the two templates differ (Section~\ref{s:limits}, item~\ref{l:spaces}), and the centroid of a structure in one
+plane is not a block position. The WSI block centres are unchanged.
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}c r >{\raggedright\arraybackslash}X c >{\raggedright\arraybackslash}X c c r@{}}\toprule
+$k$ & $y$ & WSI block & Centre $(x,z)$ & Atlas structure & Centroid $(x,z)$ & Offset $(\Delta x,\Delta z)$ & Distance\\\midrule
+\mBlockRows
+\bottomrule\end{tabularx}
+\caption{WSI block centres (set by hand) and holiAtlas centroids at the same $y$, in MNI millimetres. The offset is the block
+centre minus the centroid.}\label{t:mblocks}\end{table}
+
+\section{CT: head slices with the bone ring from the Clinical Toolbox template}\label{s:ct}
+The CT pipeline draws coronal slices of the head as a CT viewer shows them: a white bone ring around the intracranial space, on a
+dark screen. Three choices define it.
+
+\paragraph{Bone ring, no scalp.} Bone is what makes a CT image read as CT. A skull-stripped CT looks like a blurred MRI, so the
+figure keeps the skull as a white ring. The scalp and the soft tissue of the face are not drawn, as in the MRI figure. The
+user chose this design.
+
+\paragraph{Hounsfield units, and one mask in 3D.} The CT template has no label maps. The classes come from fixed HU thresholds
+(block \code{hu} of \code{config/ct.json}). The intracranial space is one mask, made once in 3D on the whole volume (C1),
+because a single plane can cut it in two at the skull base.
+
+\paragraph{One grid with MRI.} C1 samples the CT on the \ctVoxel~mm grid of the MRI planes file. A CT slice and an MRI slice
+of the same $y$ share every pixel. The markers are the holiAtlas centroids of M5, at the same place in millimetres as on the
+MRI slices. The CT frame is its own: the bounding box of the bone rings, larger than the MRI frame.
+
+\medskip\noindent The worked example is slice~\ctExampleK{} ($y=\ctExampleY$~mm).
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}l l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.7cm}@{}}\toprule
+Step & Module & What it does & Output\\\midrule
+C1 & \code{extract} & intracranial mask in 3D; planes on the MRI grid & \code{data/*.npz}\\
+C2 & \code{slices.plane} & flip, orientation; cut at the field of view & rasters\\
+C3 & \code{slices.classes} & bone, intracranial space and CSF from HU; the ring & masks\\
+C4 & \code{slices.rounded}, \code{vector} & round, trace, smooth, simplify & polygons\\
+C5 & \code{slices.build}, \code{scan} & one frame; markers at holiAtlas centroids & \code{out/ct/slices.json}\\
+C6 & \code{slices.build} & SVG drawing on a dark screen & \code{out/ct/slice\_k.svg}\\
+C7 & \code{icons}, \code{web} & scan thumbnails; stack page (reuse) & \code{out/ct/scan\_*.svg}\\
+C8 & \code{figures}, \code{render} & report figures and values; pairing with MRI & \code{build/fig/ct\_*}\\\bottomrule
+\end{tabularx}
+\caption{CT steps, modules and outputs. The modules are in \code{medfig/ct/}. \code{make ct} runs C2 to C8 from the planes file.
+\code{make ct-extract} runs C1. Both read the MRI planes file.}\label{t:csteps}
+\end{table}
+
+\subsection{C1 --- The intracranial mask in 3D, and planes on the MRI grid}\label{s:c1}
+Let $H$ be the HU volume (\ctVolVs~mm voxels). The intracranial mask starts from soft tissue, $S = [\,a \le H \le b\,]$ with
+$a=\ctSoftLo$ and $b=\ctSoftHi$~HU, which holds the brain and the CSF. Then
+\begin{equation}
+K = \operatorname{largest}\big(\varepsilon^{e}(S)\big),\qquad
+I_3 = \operatorname{fill}_{xyz}\big(\delta^{e+1}(K \mid A)\big),\qquad A = [\,g \le H < h\,],
+\end{equation}
+with $e=\ctErode$ voxels, $g=\ctGrowFrom$~HU and $h=\ctBoneHu$~HU. $\varepsilon^{e}$ is $e$ binary erosions with the
+6-neighbour element. They cut the thin links between the brain and the soft tissue outside the skull (through the foramina),
+so the largest connected part, $K$, is the brain with its CSF. $\delta^{e+1}(K\mid A)$ is $e+1$ dilations of $K$, each kept
+inside $A$. They bring back the eroded edge, with the bright vessels next to it, but they stop at the bone ($H\ge h$). $\operatorname{fill}_{xyz}$ fills the holes of every plane along each of the three axes. The 3D mask holds
+\ctIcvMl~ml. It runs down to the lowest plane of the volume, so it is not an intracranial volume of a person.
+
+\code{ct.extract} then samples the volume at the pixel centres of the MRI planes file, on the same \ctNPlanes{} values of $y$:
+$H$ linearly, with $\ctOutside$~HU outside the CT volume, and the mask linearly, cut at 0.5. The planes file holds \ctNPlanes{}
+planes of $\ctPlaneW\times\ctPlaneH$ pixels of each, and the thresholds in its meta. \code{ct slices} stops if these thresholds
+differ from the configuration: a change of \code{hu} needs a new run of C1.
+
+\subsection{C2 --- Orientation and the field of view}
+Each plane is flipped and put in the configured orientation (\ctOrientation), as in M2. The CT volume ends at
+$z_{\min}=\ctZMin$~mm, above the lower edge of the MRI grid. Rows below it are outside the field of view. With $z_0$ the $z$ of
+row 0, the last row inside is
+\begin{equation}
+r_c = \operatorname{round}\!\left(\frac{z_0 - z_{\min}}{\Delta_v}\right) = \ctCutRow.
+\end{equation}
+The plane keeps rows 0 to $r_c$ and repeats row $r_c$ \ctCutPad{} times (\ctCutPadMm~mm), so it has \ctRows{} rows. A mask
+that reaches the cut runs on below it. The frame ends at the cut (C5), so no outline is drawn along the cut: the slice looks cut
+flat, as a scan with a limited field of view does.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{ct_step_1_planes.png}
+\caption{C1 and C2: the planes used, after the flip, in the radiological orientation (R and L: the sides of the patient).
+Top: brain window (\ctBrainLo{} to \ctBrainHi~HU); bottom: bone window ($\ctBoneLo$ to \ctBoneHi~HU). The dashed line is the
+lowest plane of the CT volume ($z=\ctCutZ$~mm); the rows below it repeat the last row. The contrast agent makes the vessels and
+the venous sinuses bright in the brain window.}\label{f:cplanes}\end{figure}
+
+\subsection{C3 --- Classes from Hounsfield units}\label{s:c3}
+Let $I_p$ be the intracranial mask of the plane (C1). The classes are
+\begin{gather}
+B = [\,H > h\,],\qquad I = I_p \wedge \neg B,\qquad C = B \vee I,\qquad C' = C \vee \operatorname{close}_q(C),\\
+R = \operatorname{largest}(C'),\qquad \mathit{Brain} = I \wedge R,\qquad \mathit{CSF} = \mathit{Brain} \wedge [\,H < c\,],
+\end{gather}
+with $h=\ctBoneHu$~HU, $q=\ctSuture$~px (\ctSutureMm~mm) and $c=\ctCsfHu$~HU. $B$ is bone and $I$ the intracranial space
+without bone. $C$ is the cranium: the skull with its content. The closing bridges the sutures and thin bone, where the bone dips
+under the threshold. The ring $R$ is the largest connected part of $C'$: the skull with its content. Bone that does not touch it,
+for example parts of the face, the jaw or the spine, drops out. The brain class is the intracranial space inside the ring. It
+holds the brain, the CSF, the vessels and the meninges. CT does not separate grey from white matter well, and the figure draws
+one brain colour. The CSF class (ventricles and cisterns) is the part of the brain class below $c$. The scalp lies outside the
+bone and is never in $C$.
+
+The contrast agent makes the venous sinuses brighter than the soft-tissue window and darker than bone. The part of the
+superior sagittal sinus that the growth of C1 does not reach is in no class. It shows as a small dark notch at the top of the
+midline, outlined like a hole of the ring (Figures~\ref{f:cframe} and~\ref{f:csvgs}).
+
+On the worked example, bone has \ctBonePx{} px, the intracranial space without bone \ctIcvPx{} px and CSF \ctCsfPx{} px. The
+closing adds \ctCloseAdded{} px, and \ctRingDropped{} px of the closed cranium are not in the ring.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{ct_step_3_classes.png}
+\caption{C3 on the worked example: the HU plane in the brain window with the edge of the bone (HU $>\ctBoneHu$, lilac) and the
+edge of the intracranial mask of C1 (orange) (3a); the cranium: bone, intracranial space without bone, the pixels that the
+closing adds (blue) and the pixels that are not in the ring (red) (3b); the three classes in the palette colours on the screen
+colour, before rounding (3c).}\end{figure}
+
+\subsection{C4 --- Rounding, tracing and simplifying}
+The three masks (ring, brain, CSF) are rounded as in M4 ($\sigma=\ctRSig$~px, objects of at most \ctMinObj{} px dropped), and
+each is cut to the one below it, so that $\mathit{CSF}'\subseteq\mathit{Brain}'\subseteq R'$. Tracing, smoothing
+($\sigma_c=\ctCSig$) and simplifying ($\varepsilon=\ctEps$~px) are the functions of S5 and M4.
+
+\subsection{C5 --- One frame and markers}
+The frame is the bounding box of the union of the rounded rings, padded by \ctPad{} units, as in M5. If a ring reaches the cut,
+the bottom edge of the frame is the cut. The viewBox is $\ctVbW\times\ctVbH$, and its top left corner is at
+$(x_{\mathrm{left}},z_{\mathrm{top}}) = (\ctFrameX,\,\ctFrameZ)$~mm. Eq.~(\ref{e:mframe}) maps a point $(x,z)$, with
+$s=\ctXSign$. \code{out/ct/slices.json} holds these values, the orientation and the $z$ of the cut (\code{cut\_z\_mm}).
+
+The markers are the holiAtlas centroids of M5: the structure labels of the MRI plane of the same $y$, on the same pixels. The
+rows below the MRI grid have no label. Table~\ref{t:cslices} lists the slices, the centroids and the areas.
+\begin{figure}[H]\centering\includegraphics[width=.7\linewidth]{ct_step_5_frame.png}
+\caption{C5: the outlines of the rings of the slices in the shared frame, with the midline (dotted), the markers (dashed squares)
+and their centroids (dots). R and L mark the sides of the patient. The dashed line is the bottom edge of the frame, at the
+lowest CT plane; a ring that reaches it runs on below it in the repeated rows and is cut there. Small closed outlines are holes
+of the rings, for example the venous sinus at the top of the midline. Marker positions: \ctMarkerCredit.}\label{f:cframe}\end{figure}
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}c r >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{2.6cm} c r r r r@{}}\toprule
+$k$ & $y$ & Slice & Marker & Centroid $(x,z)$ & Ring & Bone & Intracranial & CSF\\\midrule
+\ctSliceRows
+\bottomrule\end{tabularx}
+\caption{CT slices, markers and areas. $y$ and the centroids are in MNI millimetres. The areas are in mm$^2$ and come from the
+rounded masks. The ring is the skull with its content; bone is the ring without the intracranial space; the intracranial space
+includes the CSF. For a ring that reaches the cut, the areas include the repeated rows below it (C2). The areas describe the
+drawing of a template, not a measurement of a person.}\label{t:cslices}\end{table}
+
+\subsection{C6 --- SVG drawing}
+Each slice is one SVG with five elements, from back to front: the screen, a rounded rectangle
+(\colorbox{ctScreen}{\strut\ \color{white}\ctColScreen\ }, inset by \ctInset{} units at the top and the sides, corner radius
+\ctRadius{} units) that runs to the bottom edge; the ring in the bone colour (\fcolorbox{gray}{ctBone}{\strut\ \ctColBone\ });
+the brain class (\colorbox{ctBrain}{\strut\ \ctColBrain\ }); the CSF class (\colorbox{ctCsf}{\strut\ \color{white}\ctColCsf\ });
+and the outline of the ring (\textcolor{ctLine}{\ctColLine}, width \ctOutline{} units). The fills use the even-odd rule, so a
+hole of the ring shows the screen. The visible bone is the ring minus the brain class. The colours are a drawing convention
+with the order of a CT image in a brain window: bone white, brain grey, CSF dark. Each SVG carries the credit ``\ctLicense'' in
+a comment. Sizes: \ctSvgSizes.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{ct_step_6_svgs.png}
+\caption{C6: the SVG slices with their markers. A ring that reaches the lowest CT plane runs out of the bottom edge. The dark
+notch at the top of the midline is the venous sinus (C3). Marker positions: \ctMarkerCredit.}\label{f:csvgs}\end{figure}
+
+\subsection{C7 --- Scan thumbnails}
+The thumbnails are made as in M7 (\code{scan.icons}): scan $k$ shows the whole slice $k$ on a dark square. \code{ct.web} writes a
+stack page with \code{scan.web}, the same reuse as for MRI. It is not developed for CT.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{ct_step_7_icons.png}
+\caption{C7: one CT scan and the strip of scans with the deck behind.}\end{figure}
+
+\subsection{C8 --- Report figures, and the pairing with MRI}\label{s:c8}
+\code{ct.figures} makes the figures of C1 to C5 and the pairing figure, and writes the values of this section to
+\code{build/fig/ct\_numbers.json}. \code{ct.render} draws the figures of C6 and C7 in Chromium.
+
+\paragraph{Pairing.} For each slice, Figure~\ref{f:cpair} draws the CT brain class (rounded, C4) with two holiAtlas masks of the
+same plane: the intracranial volume $I$ of M3 (labelled pixels, pockets filled) and the rounded MRI brain mask $M'$ of M4. The
+masks are on the same pixels, so no copy to another grid is needed. The Dice coefficient of the CT brain class with $I$ is
+\ctDiceIcvMin{} to \ctDiceIcvMax, and with $M'$ \ctDiceMaskMin{} to \ctDiceMaskMax{} (Table~\ref{t:cpair}). The CT brain class
+is \ctMoreMin{} to \ctMoreMax{}\,\% larger than $I$ at these planes. It runs to the inner surface of the bone, while $I$ is the
+labelled volume of holiAtlas, and the two templates are averages of different groups. For a ring that reaches the cut, the CT
+area also holds the repeated rows below the field of view, where holiAtlas has no pixel. The values show that the CT and MRI
+figures have about the same size and place in MNI space. They are not the result of a registration.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{ct_step_8_pairing.png}
+\caption{C8: the CT brain class (filled) with the holiAtlas intracranial volume (line) and the MRI brain mask (dashed) of the same
+plane, in MNI millimetres. The $x$ axis runs from the right of the patient ($+x$) to the left ($-x$), as on the slices. Each
+title gives the two Dice coefficients.}\label{f:cpair}\end{figure}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}c r r r c c@{}}\toprule
+$k$ & $y$ & CT brain class (mm$^2$) & holiAtlas $I$ (mm$^2$) & $D$, $I$ & $D$, MRI mask\\\midrule
+\ctPairRows
+\bottomrule\end{tabular}
+\caption{Pairing of the CT slices with holiAtlas at the same $y$: areas and Dice coefficients.}\label{t:cpair}\end{table}
+
+\section{PET: amyloid bands from the rPOP florbetaben templates}\label{s:pet}
+The PET pipeline draws coronal slices of amyloid PET: the uptake as nested bands of SUVR inside the brain outline, in a warm
+palette. It draws \petNSeries{} series, the \petSeriesA{} and the \petSeriesB{} florbetaben template of rPOP, with the same band
+edges and colours. Each series is written like one modality, to \code{out/pet/<series>/}. Three choices define it.
+
+\paragraph{Templates, not a simulation.} The uptake comes from PET templates. An earlier test drew PET from the labels of
+holiAtlas; it looked wrong, and the user chose the rPOP pair. The pair shows the main finding of an amyloid scan: where the
+uptake of a positive scan differs from that of a negative one.
+
+\paragraph{SUVR to the whole cerebellum.} PET values have no fixed scale across scans. The standard uptake value ratio (SUVR)
+divides each value by the mean over a reference region with little amyloid. medfig uses the \petRefName{} of holiAtlas
+(tissue labels \petRefLabels) and takes the mean in 3D.
+
+\paragraph{The MRI outline.} The templates have \petNativeVs~mm voxels and no labels. The figure takes its outline from the
+MRI brain mask of the same $y$ (M3, M4), so a PET slice and an MRI slice have the same outline, the same frame and the same
+markers.
+
+\medskip\noindent The worked example is slice~\petExampleK{} ($y=\petExampleY$~mm).
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}l l >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{3.7cm}@{}}\toprule
+Step & Module & What it does & Output\\\midrule
+P1 & \code{extract} & native planes; reference mean in 3D & \code{data/*.npz}\\
+P2 & \code{slices.suvr} & SUVR on the MRI grid; orientation & rasters\\
+P3 & \code{slices.brain}, \code{slices.bands} & MRI brain mask; smoothing; nested bands & masks\\
+P4 & \code{vector} & trace, smooth, simplify & polygons\\
+P5 & \code{slices.build}, \code{scan} & the MRI frame; markers at holiAtlas centroids & \code{slices.json}\\
+P6 & \code{slices.build}, \code{key\_svg} & SVG drawing; colour key & \code{slice\_k.svg}, \code{key.svg}\\
+P7 & \code{icons}, \code{web} & scan thumbnails; stack page (reuse) & \code{scan\_*.svg}\\
+P8 & \code{figures}, \code{render} & report figures and values & \code{build/fig/pet\_*}\\\bottomrule
+\end{tabularx}
+\caption{PET steps, modules and outputs. The modules are in \code{medfig/pet/}. P5 to P7 write to \code{out/pet/<series>/}.
+\code{make pet} runs P2 to P8 from the planes file. \code{make pet-extract} runs P1. P2 to P8 read the MRI planes file; P1 reads the holiAtlas tissue atlas.}\label{t:psteps}
+\end{table}
+
+\subsection{P1 --- Native planes and the reference mean}\label{s:p1}
+\code{pet.extract} cuts the planes of \code{source.candidate\_y\_mm} out of each template on its native grid
+(\petNativeVs~mm), as M1 does. It also computes the reference mean of each template. Let $R$ be the set of holiAtlas voxels
+(\mVoxel~mm) whose tissue label is in \petRefLabels{} (\petRefName), and $P(p)$ the template sampled linearly at the centre of
+voxel $p$. Then
+\begin{equation}
+m = \frac{1}{|R'|}\sum_{p\in R'} P(p),\qquad R' = \{\,p\in R : P(p)\neq 0\,\}.
+\end{equation}
+Points outside the PET field of view have the value 0 and are left out. The mean is taken in 3D, because the cerebellum is not
+in every plane. Table~\ref{t:pseries} gives $m$ and $|R'|$ for each template. The planes file holds \petNPlanes{} planes of each
+template and these means.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}l l r r@{}}\toprule
+Series & Template & Reference mean $m$ & Points $|R'|$\\\midrule
+\petSeriesRows
+\bottomrule\end{tabular}
+\caption{The two templates and their means over the reference region (values of the templates as distributed).}\label{t:pseries}
+\end{table}
+
+\subsection{P2 --- SUVR on the MRI grid}
+The native plane at $y$ is sampled linearly at the pixel centres of the MRI grid (\mVoxel~mm), divided by $m$ and put in the
+configured orientation (\petOrientation), as in M2:
+\begin{equation}
+s(r,c) = \frac{P(x_c,\,y,\,z_r)}{m},
+\end{equation}
+with $(x_c, z_r)$ the position of pixel $(r,c)$. Points outside the PET field of view get 0.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{pet_step_1_suvr.png}
+\caption{P1 and P2: the SUVR planes of the two templates at the planes used, on the MRI grid, in the radiological
+orientation (R and L: the sides of the patient; grey scale 0 to \petSuvrMax). The yellow line is the MRI brain mask, the outline
+of the figure. The dashed blue line is the reference region, where the plane cuts the cerebellum. White
+matter is bright in both templates; in the \petSeriesA{} one the cortex is bright too.}\label{f:psuvr}\end{figure}
+
+\subsection{P3 --- The brain outline and the bands}
+The outline is the rounded MRI brain mask $M'$ of the same $y$ (M3 and M4, with the parameters of \code{config/mri.json}). The
+SUVR plane is smoothed with a Gaussian of $\sigma=\petSmooth$~mm, $\tilde s = G * s$. With the band edges
+$e_1<\dots<e_K$ (\petEdges), the bands are nested masks:
+\begin{equation}
+B_0 = M',\qquad B_k = \operatorname{round}\big(M' \wedge [\,\tilde s \ge e_k\,]\big) \wedge B_{k-1},\qquad k=1,\dots,K.
+\end{equation}
+$\operatorname{round}$ is the rounding of M4 ($\sigma=\petRSig$~px, objects of at most \petMinObj{} px dropped). Each band lies
+inside the one below it, so the bands nest like contour lines. Pixels of $M'$ below $e_1$ keep the colour of $B_0$. The
+\petNBands{} colours are \petBandKey{} (\petBandUnit).
+
+\paragraph{How to read the bands.} In both templates the highest bands lie in the white matter: florbetaben binds to white
+matter in every scan, with or without amyloid. Amyloid shows in the cortex. In the \petSeriesA{} template the cortical ribbon
+lies in higher bands, and the step from the cortex to the white matter is smaller. The figure is read as a pair: a warm colour
+in one slice does not by itself mean amyloid.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{pet_step_3_bands.png}
+\caption{P3 on the worked example ($y=\petExampleY$~mm): the bands of the \petSeriesA{} (3a) and the \petSeriesB{}
+template (3b), before tracing, and the histograms of the unsmoothed SUVR inside the brain mask, with the band edges dotted (3c).}
+\label{f:pbands}\end{figure}
+
+\subsection{P4 and P5 --- Tracing, the frame and the markers}
+Tracing, smoothing ($\sigma_c=\petCSig$) and simplifying ($\varepsilon=\petEps$~px) are the functions of M4. The frame is the
+bounding box of the brain masks, padded by \petPad{} units, as in M5. The masks are the MRI masks, so the frame is the MRI frame:
+the viewBox is $\petVbW\times\petVbH$ and \code{frame\_mm} is $(\petFrameX,\,\petFrameZ)$~mm, with $s=\petXSign$ in
+Eq.~(\ref{e:mframe}). The report step checks that the PET frame and masks are the MRI ones. Both series use this frame. The
+markers are the holiAtlas centroids of M5.
+
+\subsection{P6 --- SVG drawing and the colour key}
+Each slice is one SVG: the brain mask in the colour of the lowest band, one fill per band from back to front, and the outline of
+the mask (\textcolor{petLine}{\petColLine}, width \petOutline{} units). The fills use the even-odd rule. Each SVG carries the credit
+``\petLicense'' in a comment. \code{key.svg} is the colour key: one swatch of $\petKeyW\times\petKeyH$~px per colour, the edges
+between the swatches, and the unit. The SVG slices are \petSvgMin{} to \petSvgMax~KB.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{pet_step_6_pair.png}
+\caption{P6: the SVG slices of the two series, one row each, without markers, and the colour key under them. The outline is
+the MRI brain mask (\petOutlineCredit).}\label{f:ppair}\end{figure}
+
+\subsection{P7 --- Scan thumbnails}
+The thumbnails of each series are made as in M7 (\code{scan.icons}). \code{pet.web} writes a stack page for each series with
+\code{scan.web}, with the colour key under the note: the same reuse as for MRI and CT. It is not developed for PET.
+\begin{figure}[H]\centering\includegraphics[width=\linewidth]{pet_step_7_icons.png}
+\caption{P7: one scan and the strip of scans of the \petSeriesA{} series. Outline: \petOutlineCredit.}\end{figure}
+
+\subsection{P8 --- Report figures and values}\label{s:p8}
+\code{pet.figures} makes the figures of P1 to P3 and writes the values of this section to
+\nolinkurl{build/fig/pet_numbers.json}.
+\code{pet.render} draws the figures of P6 and P7 in Chromium. Table~\ref{t:pshare} gives, for each slice and series, the share
+of the brain mask in each band and the mean SUVR (unsmoothed) of grey and of white matter. Grey and white matter are the classes
+of M3 inside the mask (label lists \mGmList{} and \mWmList, so deep and cerebellar grey matter count as grey matter, and the
+brainstem as white matter). In the \petSeriesA{} template the mean SUVR of grey matter is \petGmMinA{} to \petGmMaxA{} at these
+planes, in the \petSeriesB{} template \petGmMinB{} to \petGmMaxB. White matter is \petWmMinA{} to \petWmMaxA{} and \petWmMinB{}
+to \petWmMaxB. The values describe the drawing of two group templates. They are not a measurement of a person.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}c r l r *{\petNBands}{r} c c@{}}\toprule
+ & & & & \multicolumn{\petNBands}{c}{Share of the mask in each band (\%)} & \multicolumn{2}{c}{Mean SUVR}\\
+\petShareRule
+$k$ & $y$ & Series & Mask (mm$^2$) & \petShareHead & Grey & White\\\midrule
+\petShareRows
+\bottomrule\end{tabular}
+\caption{PET band shares and tissue SUVR. Shares are rounded to whole per cent. The mask is the MRI brain mask, the same in both
+series.}\label{t:pshare}\end{table}
 
 \section{Parameters}
-All parameters are in \code{config/sections.json}; \code{MEDFIG\_CONFIG} points to another file. The main ones:
+All WSI parameters are in \code{config/sections.json}; \code{MEDFIG\_CONFIG} points to another file. The main ones:
 
 \begin{table}[H]\centering\small
 \begin{tabular}{@{}l l r l@{}}\toprule
@@ -249,59 +912,298 @@ S9 & \code{case.rotate\_y\_deg}, \code{case.depth\_step\_px} & \vRy, \vDz & fan 
 \paragraph{Other planes or blocks.} Change \code{sections} (each $y$ must be in the planes file, or run \code{extract} with
 \code{--y}). Any number of sections works; the timing lists extend with default steps.
 
+\medskip\noindent
+All MRI parameters are in \code{config/mri.json}; \code{MEDFIG\_MRI\_CONFIG} points to another file.
+Table~\ref{t:mparams} lists the main ones.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}l l r l@{}}\toprule
+Step & Key & Value & Effect\\\midrule
+M1 & \code{source.candidate\_y\_mm} & \mNPlanes{} values & planes in the planes file\\
+M2 & \code{orientation} & \mOrientation & left of the patient on the image right\\
+M3 & \code{tissue\_labels.grey\_matter} & \mGmList & tissue labels drawn as grey matter\\
+M3 & \code{tissue\_labels.white\_matter} & \mWmList & tissue labels drawn as white matter\\
+M3 & \code{mask\_close\_px} & \mClose & sulci and cisterns inside the mask\\
+M4 & \code{mask\_round\_sigma}, \code{min\_object\_px} & \mRSig, \mMinObj & roundness; specks out\\
+M4 & \code{contour\_sigma}, \code{dp\_epsilon} & \mCSig, \mEps & outline smoothness; vertex count\\
+M5 & \code{unit\_mm}, \code{pad\_units} & \mUnit, \mPad & scale (as WSI); frame margin\\
+M5 & \code{slices[].roi\_labels} & \mRoiLabels & structure labels of each marker\\
+M5 & \code{roi\_units}, \code{roi\_min\_px} & \mRoi, \mRoiMin & marker size; smallest label area\\
+M6 & \code{outline\_width} & \mOutline & outline stroke in units\\
+M7 & \code{case.rotate\_y\_deg}, \code{case.depth\_step\_px} & \mRy, \mDz & fan angle; gap between slices\\\bottomrule
+\end{tabular}
+\caption{The main MRI parameters (\code{config/mri.json}).}\label{t:mparams}\end{table}
+
+\paragraph{Other planes or markers.} Change \code{slices} (each $y$ must be in the planes file, or run \code{mri extract} with
+\code{--y}). \code{roi\_labels} are labels of the structure atlas; \nolinkurl{HoliBrain_Protocol_v1.0.xlsx} in the release gives
+their names. A slice without \code{roi\_labels} gets no marker. CT and PET read the same planes file: a new $y$ needs new
+CT and PET planes too (\code{ct extract}, \code{pet extract}).
+
+\medskip\noindent
+All CT parameters are in \code{config/ct.json}. \code{MEDFIG\_CT\_CONFIG} points to another configuration file, and
+\code{MEDFIG\_CT\_PLANES} to another planes file. Table~\ref{t:cparams} lists the main ones. The planes file depends on the \code{hu} values of C1: after
+a change of them, run \code{ct extract} again.
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}l l r >{\raggedright\arraybackslash}X@{}}\toprule
+Step & Key & Value & Effect\\\midrule
+C1 & \code{hu.soft\_window} & $\ctSoftLo$, \ctSoftHi & soft tissue: the core of the intracranial mask\\
+C1 & \code{hu.erode\_vox}, \code{hu.grow\_from} & \ctErode, $\ctGrowFrom$ & cut the links; lower HU limit of the growth\\
+C1, C3 & \code{hu.bone} & \ctBoneHu & bone; upper HU limit of the growth\\
+C3 & \code{hu.csf} & \ctCsfHu & CSF inside the intracranial space\\
+C2 & \code{raster.cut\_pad\_px} & \ctCutPad & rows repeated below the field of view\\
+C3 & \code{raster.suture\_close\_px} & \ctSuture & sutures and thin bone closed\\
+C4 & \code{mask\_round\_sigma}, \code{min\_object\_px} & \ctRSig, \ctMinObj & roundness; specks out\\
+C4 & \code{contour\_sigma}, \code{dp\_epsilon} & \ctCSig, \ctEps & outline smoothness; vertex count\\
+C5 & \code{unit\_mm}, \code{pad\_units} & \ctUnit, \ctPad & scale (as WSI and MRI); frame margin\\
+C5 & \code{roi\_units}, \code{roi\_min\_px} & \ctRoi, \ctRoiMin & marker size; smallest label area\\
+C6 & \code{screen.inset\_units}, \code{screen.radius\_units} & \ctInset, \ctRadius & the dark screen\\
+C6 & \code{outline\_width} & \ctOutline & outline stroke in units\\
+C8 & \code{figures.brain\_window\_hu} & \ctBrainLo, \ctBrainHi & grey window of the HU panels\\\bottomrule
+\end{tabularx}
+\caption{The main CT parameters (\code{config/ct.json}). \code{orientation} is \ctOrientation.}\label{t:cparams}\end{table}
+
+\medskip\noindent
+All PET parameters are in \code{config/pet.json}. \code{MEDFIG\_PET\_CONFIG} points to another configuration file, and
+\code{MEDFIG\_PET\_PLANES} to another planes file. The brain outline uses the parameters of \code{config/mri.json}. Table~\ref{t:pparams} lists the main
+ones. The planes file depends on \code{reference}: after a change of it, run \code{pet extract} again.
+
+\begin{table}[H]\centering\small
+\begin{tabularx}{\linewidth}{@{}l l r >{\raggedright\arraybackslash}X@{}}\toprule
+Step & Key & Value & Effect\\\midrule
+P1 & \code{reference.tissue\_labels} & \petRefLabels & reference region (\petRefName)\\
+P3 & \code{bands.edges} & \petEdges & band edges (\petBandUnit)\\
+P3 & \code{bands.smooth\_sigma\_mm} & \petSmooth & smoothing before the cut (mm)\\
+P3 & \code{mask\_round\_sigma}, \code{min\_object\_px} & \petRSig, \petMinObj & roundness of the bands; specks out\\
+P4 & \code{contour\_sigma}, \code{dp\_epsilon} & \petCSig, \petEps & outline smoothness; vertex count\\
+P5 & \code{unit\_mm}, \code{pad\_units} & \petUnit, \petPad & scale and margin (as MRI, so the frames agree)\\
+P5 & \code{roi\_units}, \code{roi\_min\_px} & \petRoi, \petRoiMin & marker size; smallest label area\\
+P6 & \code{palette.bands} & \petNBands{} colours & one colour per band\\
+P6 & \code{key.swatch\_w}, \code{key.swatch\_h}, \code{key.font\_px} & \petKeyW, \petKeyH, \petKeyFont & the colour key\\
+P8 & \code{figures.suvr\_max}, \code{figures.hist\_bins} & \petSuvrMax, \petHistBins & grey scale and histogram\\\bottomrule
+\end{tabularx}
+\caption{The main PET parameters (\code{config/pet.json}). \code{orientation} is \petOrientation; \code{series} names the
+templates.}\label{t:pparams}\end{table}
+
 \section{Verification}
 \begin{itemize}
-\item \code{make test} (pytest, 5 checks): the planes file shape; tissue and white-matter fractions in a sane range for every
+\item \code{make test} runs pytest on the test files in \code{tests/}. All checks pass, and one check is marked as an
+expected failure (\code{test\_scan.py}, below).
+\item \code{tests/test\_pipeline.py} (WSI): the planes file shape; tissue and white-matter fractions in a sane range for every
 section; the floor raises the cerebellar Otsu by more than 20; two builds give byte-identical SVGs and every marker is inside the
 frame; the SVG path data equal the copies published on the lab landing page on 13 October 2026 (\code{tests/reference/}).
+\item \code{tests/test\_shared.py} (shared code): the NIfTI reader on synthetic files; step M1 on a synthetic
+template; the command line, the configuration loader and the environment variables of each modality; the functions of
+\code{vector.py}; the stack CSS for several numbers of items; a fresh WSI build still gives the path data of
+\code{tests/reference/}, and the WSI stack page, its snippet and its CSS equal the copies of the published page in
+\code{tests/reference/}. Some checks cover files that are unlike the templates, for example a scale slope of 0 with an
+intercept (the reader applies no scaling) and a file without an sform (the reader stops with an error).
+\item \code{tests/test\_scan.py} (\code{scan.py}, on small synthetic arrays): the orientation key (a known value is needed);
+\code{orient} puts the highest $z$ in the first row and, in the radiological orientation, the highest $x$ in the first column;
+the grid and \code{to\_mm} give the millimetres of every pixel after \code{orient}; the frame; a pixel goes to millimetres and
+back to frame units by Eq.~(\ref{e:mframe}) in both orientations, with a left pixel on the image right in the radiological one;
+the marker centre and its square; the SVG text and its credit line; the note of the stack page names the orientation.
+The expected failure: the note takes the orientation from the configuration, not from \code{slices.json}, so a \code{web}
+step after a change of \code{orientation} without a new \code{slices} step names the wrong side.
+\item \code{tests/test\_mri.py} (MRI): the planes file; rows run superior to inferior, and the columns follow the orientation
+(an odd holiAtlas label is a left structure: it lies at $x<0$, on the image right); the three masks are nested, the mask is one
+object away from the image border, and the class shares are in a sane range; the masks are the same without the T1w channel, so
+the skull stripping uses the labels only; the mask stays inside the intracranial volume, and bright pixels of the head (scalp)
+lie outside it in every slice; the rules of the brain mask hold on a small synthetic label image; each marker centre is the
+centroid of its labels, lies on its structure, inside the mask and the frame, and on the image right for a left structure; the
+neurological build is the mirror image of the radiological one; two builds give byte-identical SVGs; one unit equals the WSI
+unit; the SVGs equal the reference copies (\code{tests/reference/mri/}, made again on 14 October 2026 for the radiological
+orientation); the page, the snippet, the CSS and the scan thumbnails; the slices step in an ASCII locale.
+\item \code{tests/test\_ct.py} (CT): the planes file is on the MRI grid and was made with the thresholds of
+\code{config/ct.json}; a plane is cut at the field of view and its last row repeated; the left structure of each slice is on
+the image right; the CT brain class covers the MRI brain mask of the same plane (Dice above 0.85); the classes are nested, the
+ring is one object, bone is above \code{hu.bone}, CSF below \code{hu.csf}, and the scalp stays out; the rules of
+\code{classes} on a small synthetic plane (a suture is closed, a separate bone and the scalp drop out); the 3D intracranial
+mask and \code{ct extract} on a small synthetic head; the bottom edge of the frame is the cut; the markers equal the MRI
+markers; two builds give byte-identical SVGs; a change of the thresholds, another grid, a $y$ that is not in the planes
+file or an unknown orientation stop the step before it writes; the SVGs equal the reference copies (\code{tests/reference/ct/},
+made on 14 October 2026); the page, the thumbnails and the command line.
+\item \code{tests/test\_pet.py} (PET): the planes file holds the native planes and the reference means; the SUVR plane is the
+native value over the reference mean at the right pixels; the left structure of each slice is on the image right; the bands
+are nested, the first layer is the brain mask, and there is one colour per layer; every band of the amyloid-positive slice is
+larger than that of the amyloid-negative one; the viewBox, the frame, the mask and the outline equal those of the MRI slice of
+the same $y$, and so do the markers; two builds give byte-identical SVGs; the SVGs equal the reference copies
+(\code{tests/reference/pet/<series>/}, made on 14 October 2026); a wrong palette, edges that do not ascend, an unknown series
+channel, a missing $y$ or an unknown orientation stop the step; the colour key, the pages and the thumbnails; the reference
+mean on synthetic volumes (a constant, a linear uptake on another grid, points outside the field of view) and
+\code{pet extract}; the command line.
+\item \code{tests/test\_report.py} (report numbers): the Dice coefficient; the resampling of a mask to another grid, also to
+a mirrored (radiological) grid; the grids of MRI in both orientations, of the WSI block mean, and the image extents; the pairing
+at the shared planes; the figures step stops on a stale \code{slices.json}; the worked example is chosen by $k$; every macro
+and every colour that \code{report.tex} uses is defined, and every name follows the prefix rule (\code{v}, \code{m},
+\code{ct}, \code{pet}); the rows of the MRI, CT and PET tables; the report step, run on a fresh build of every modality and the
+tracked numbers files, writes the tracked \code{numbers.tex}; it stops without writing when an input of any modality is
+missing or from another run (for example another frame, orientation, area or threshold, or a PET frame that is not the MRI
+frame), and when a planes file is missing. \code{tests/conftest.py} removes the \code{MEDFIG\_*} variables of the shell
+before the checks run.
+\item \code{python -m medfig report} itself checks that the inputs of each modality come from one run: \code{slices.json} and
+the numbers file agree on the frame, the slices, the markers and the areas; the CT thresholds agree in the configuration, the
+planes file and the numbers file; the PET frame and mask are the MRI ones.
 \item \code{medfig render} reports the page width at 900 and 390~px (no horizontal scroll) and page errors (none).
-\item The figures in this report are made by the same functions as the products (\code{medfig/figures.py}).
+\code{medfig mri render}, \code{ct render} and \code{pet render} report the same for their pages.
+\item The command \code{sha256sum -c data/SHA256SUMS} checks the four planes files against their checksums. A new run
+of step M1 on the template gives the MRI planes file with the checksum that it holds.
+\item The figures in this report are made by the same functions as the products (\code{medfig/figures.py} and the
+\code{figures} modules of \code{medfig/mri/}, \code{medfig/ct/} and \code{medfig/pet/}).
 \end{itemize}
 
 \section{Reproduction and DGX Spark}
+Run the commands from the root of the repository.
 \begin{lstlisting}
 git clone medfig.bundle medfig && cd medfig
-scripts/dgx_setup.sh            # venv, pip install, Chromium, checksum, tests
+scripts/dgx_setup.sh          # venv, pip install, Chromium, checksum, tests
 . .venv/bin/activate
-make all                        # sections, icons, web, figures, render, overview, report
-make extract VOLUME=/path/full8_100um_2009b_sym.nii.gz   # only to cut new planes
+make all                      # WSI, MRI, CT, PET, then the report
+make mri                      # MRI only: slices, icons, web, figures, render
+make ct                       # CT only (reads the MRI planes file)
+make pet                      # PET only (reads the MRI planes file)
+# only to cut new planes:
+make extract VOLUME=/path/full8_100um_2009b_sym.nii.gz
+make mri-extract HOLIATLAS=~/data/holiatlas
+make ct-extract CT_DIR=~/data/clinical_ct
+make pet-extract PET_DIR=~/data/rpop HOLIATLAS=~/data/holiatlas
+python -m medfig ct extract ~/data/clinical_ct              # = make ct-extract
+python -m medfig pet extract ~/data/rpop ~/data/holiatlas   # = make pet-extract
 \end{lstlisting}
-\paragraph{Notes for DGX Spark.} DGX Spark is an aarch64 machine. As far as we know, all Python dependencies have aarch64 wheels and Playwright ships
-Chromium for linux-arm64. Neither statement has been checked on a DGX Spark yet; \code{scripts/dgx\_setup.sh} is the first test. The pipeline uses the CPU only: S2--S7 take a few seconds, S1 is limited by gzip (one core). If S1 has to run
-often, a parallel gzip reader (for example \code{rapidgzip}) or an uncompressed copy of the volume will make it I/O-bound. The GPU is
-not needed; it becomes useful only for heavier future steps, for example 3D surface extraction from the full volume.
+Each step is also a command, for example \code{python -m medfig sections} and \code{python -m medfig ct slices}.
+\code{HOLIATLAS} is the directory with the unzipped \nolinkurl{holiatlas_v1.0.zip}; \code{source.url} in \code{config/mri.json}
+gives its address. \code{CT\_DIR} holds \nolinkurl{scct_unsmooth.nii}. \code{PET\_DIR} holds \nolinkurl{Template_FBB_neg.nii} and
+\nolinkurl{Template_FBB_pos.nii}. The key \code{source.url} of \code{config/ct.json} and of \code{config/pet.json} gives the
+repository of each. The three directories in the listing are the defaults of the \code{Makefile}.
+\code{ct extract} reads the MRI planes file for its grid, so cut the MRI planes first. Run \code{ct extract} again after a
+change of \code{hu}, and \code{pet extract} after a change of \code{reference}. \code{make report} needs \code{latexmk}
+and a TeX Live with the packages of \code{report.tex}.
 
-\section{Limitations}
+\paragraph{Notes for DGX Spark.} DGX Spark is an aarch64 machine. As far as we know, all Python dependencies have aarch64 wheels and Playwright ships
+Chromium for linux-arm64. Versions 0.2.0 and 0.3.0 were built on the lab DGX Spark: the packages there come from aarch64 wheels,
+and the tests, the steps of every modality and the page capture with Chromium ran there. That machine has no system LaTeX;
+\code{scripts/dgx\_setup.sh} names the packages that the report needs. A TeX Live of another project on that machine works
+read-only: put its \code{bin} directory and \code{latexmk} on \code{PATH}, and set \code{TEXMFVAR} and \code{TEXMFCONFIG} to a
+temporary directory. The pipeline uses the CPU only: S2--S7 take a few seconds, S1 is limited by gzip (one core). The steps
+of MRI, CT and PET take seconds. If S1 has to run often, a parallel gzip reader (for example \code{rapidgzip}) or an
+uncompressed copy of the volume will make it I/O-bound. The GPU is not needed; it becomes useful only for heavier future steps,
+for example 3D surface extraction from the full volume.
+
+\section{Limitations}\label{s:limits}
 \begin{enumerate}
 \item \textbf{Schematic.} One brain, three planes, blocks chosen for illustration. Not the BU cutting plan, not BU block locations.
-\item \textbf{Block centres} were set from general MNI anatomy, not from an atlas lookup. Check them against an atlas
-(for example Harvard--Oxford) before any figure that claims a structure.
+\item\label{l:blocks} \textbf{Block centres} were set from general MNI anatomy, not from an atlas lookup. Check them against an atlas
+(for example Harvard--Oxford) before any figure that claims a structure. Version 0.2.0 answers this item in part:
+Section~\ref{s:m8} compares the block centres with the holiAtlas centroids at the same planes (Table~\ref{t:mblocks},
+\mDistMin{} to \mDistMax~mm apart). That comparison uses another brain and another template, and the block centres are
+unchanged.
 \item \textbf{Stain.} BigBrain is Merker-stained. The pink/blue colouring is a drawing convention, not a stain simulation.
 \item \textbf{Threshold.} The grey/white split is a global intensity rule per section. It does not follow cortical layers, and
 deep nuclei are drawn as grey matter.
 \item \textbf{Phones.} At 390~px the three sections are about 70~px wide each and look crowded.
+\item \textbf{Templates, not patients.} holiAtlas, the CT template and the rPOP templates are population averages. Their
+anatomy is smoother than that of one head, and no slice shows a person. The areas and values of the tables describe the
+drawing.
+\item\label{l:spaces} \textbf{Several templates in one MNI space.} holiAtlas is a new group average on its own \mVoxel~mm grid in
+MNI152 space. Its article \cite{manjon2026} names the MNI152 2009b nonlinear symmetric template as the first reference of the
+template building. The preprint says asymmetric. BigBrain is in the 2009b symmetric space. The iterations of the template
+building can move holiAtlas away from its first reference. The CT template and the rPOP templates are in MNI space by their
+headers. medfig has not measured the differences. It treats the millimetre systems as one. The pairings and the distances of
+Sections~\ref{s:m8} and~\ref{s:c8} are therefore approximate.
+\item \textbf{Orientation.} MRI, CT and PET are radiological, WSI is neurological. A WSI section beside an MRI slice is its
+mirror image: the left structures lie on opposite sides. A host page that shows both should say so, or set
+\code{orientation} of the scanner modalities to \code{neurological}.
+\item \textbf{MRI: colours.} Dark CSF, mid grey matter and light white matter are a drawing convention, not T1w intensities.
+Each tissue label goes to one class as a whole (Section~\ref{s:m3}).
+\item \textbf{A few slices} are a schematic of a volume, for every scanner modality. The gap between two slices of a stack is
+the same for every pair, whatever their distance in $y$.
+\item \textbf{MRI: no segmentation.} medfig does not skull-strip or segment a scan. The method needs the label maps of the template,
+so it does not carry over to a scan without labels.
+\item \textbf{CT: template and thresholds.} The scans of the CT template were contrast-enhanced: the vessels and the venous
+sinuses are bright, and part of the superior sagittal sinus falls in no class (Section~\ref{s:c3}). The classes come from fixed
+HU thresholds on the template; they would need new values for another scan. The brain class holds everything inside the bone,
+so grey and white matter are not drawn. The field of view ends at $z=\ctZMin$~mm, so the slices are cut flat there, and the
+areas of a slice that reaches the cut include repeated rows. The scalp is not drawn, by choice.
+\item \textbf{PET: what the bands mean.} The bands are fixed SUVR edges on two group templates, after smoothing, with no
+partial-volume correction. The templates have \petNativeVs~mm voxels; the 0.5~mm grid of the figure adds no detail. The highest
+bands lie in the white matter in both series (non-specific binding of florbetaben), so a warm colour alone does not mean amyloid
+(Section~\ref{s:pet}). The reference region and the outline come from holiAtlas, another template, so the SUVR scale is
+approximate.
+\item \textbf{PET: licence.} The rPOP templates are means of ADNI scans, and no document was found that clears their
+redistribution (Section~\ref{s:data}). Use the PET figures for research only.
+\item\label{l:squares} \textbf{Stack: marker squares in the second state.} At case level (WSI) only item~1 shows its dashed marker
+square. The back items show their number, and their squares stay hidden. Two CSS rules of equal specificity in
+\code{medfig/stack.py} set the opacity of these squares, and the later rule hides them. The two buttons of the page show no
+keyboard focus ring. The published WSI page of version 0.1.0 behaves the same way. The user chose (14 October 2026) to keep
+the published page as it is.
+\item\label{l:stackscan} \textbf{Stack: a WSI page reused for scans.} The stack pages of MRI, CT and PET are a reuse of the WSI
+page. They were not designed for scans, and medfig does not develop them. In Volume the markers of the back slices are on the
+right of the image, behind the slice in front, so their numbers and squares are hidden. The PET page has one stack per series.
 \end{enumerate}
 
-\section{Licence and credits}
+\section{Licence and credits}\label{s:licence}
 Data: BigBrain \cite{amunts2013}, CC BY-NC-SA 4.0. Every derived figure in \code{out/} and \code{build/} is adapted material under
 CC BY-NC-SA 4.0 and must carry the credit line
 ``Brain sections drawn from BigBrain (Amunts et al., Science 2013), CC BY-NC-SA 4.0''. Software: NumPy, SciPy, scikit-image
 \cite{vanderwalt2014}, Matplotlib, Pillow, Playwright.
 
-\begin{thebibliography}{9}\small
+MRI data: holiAtlas v1.0 \cite{manjon2026}. The sources of holiAtlas do not agree on its licence (Section~\ref{s:data}).
+\mbox{medfig} keeps CC BY-NC-SA 4.0, the stricter of the two statements. Every MRI figure in \code{out/mri/} and in
+\code{build/fig/} is adapted material under CC BY-NC-SA 4.0 and must carry the credit line
+``Brain slices drawn from \mLicense''. Two files hold the stack only, without text: the end states
+\nolinkurl{mri_end_slice.png} and \nolinkurl{mri_end_volume.png}. The credit line must stand beside them.
+Figures~\ref{f:mframe} and~\ref{f:mpair} show both sources and name both.
+
+CT data: the Clinical Toolbox CT template \cite{rorden2012}. Its repository states the BSD 2-Clause licence and its article the
+GNU GPL, version~2 or later (Section~\ref{s:data}). The CT planes file is shared under the BSD 2-Clause licence; keep
+\nolinkurl{data/LICENSE-clinical-ct.txt} with it. The CT figures carry holiAtlas marker positions and are shared under
+CC BY-NC-SA 4.0. Their credit lines are ``\ctLicense'' and, for the markers, ``\ctMarkerCredit''.
+
+PET data: the rPOP florbetaben templates \cite{iaccarino2022}, CC BY-NC-SA 4.0 in their repository; the redistribution of the
+ADNI means is an open point (Section~\ref{s:data}). The PET planes file and the PET figures are shared under CC BY-NC-SA 4.0,
+for research use only. Their credit lines are ``\petLicense'' and, for the outline, the reference region and the markers,
+``\petOutlineCredit''. The end states of the CT and PET pages hold the stack only: the credit lines must stand beside them.
+
+\begin{itemize}
+\item Licence text: \url{https://creativecommons.org/licenses/by-nc-sa/4.0/}
+\item holiAtlas article: \url{https://doi.org/10.1038/s41598-026-40186-2}
+\item holiAtlas Zenodo record (CC BY 4.0): \url{https://doi.org/10.5281/zenodo.15690524}
+\item holiAtlas download: \url{https://volbrain.net/public/data/holiatlas_v1.0.zip}
+\item CT template article: \url{https://doi.org/10.1016/j.neuroimage.2012.03.020}
+\item CT template repository (BSD 2-Clause): \url{https://github.com/neurolabusc/Clinical}
+\item rPOP article: \url{https://doi.org/10.1016/j.neuroimage.2021.118775}
+\item rPOP repository (CC BY-NC-SA 4.0): \url{https://github.com/LeoIacca/rPOP}
+\end{itemize}
+
+\begin{thebibliography}{99}\small
 \bibitem{amunts2013} K.~Amunts et al. BigBrain: an ultrahigh-resolution 3D human brain model. \emph{Science} 340(6139):1472--1475, 2013.
 \bibitem{fonov2011} V.~Fonov et al. Unbiased average age-appropriate atlases for pediatric studies. \emph{NeuroImage} 54(1):313--327, 2011.
 \bibitem{otsu1979} N.~Otsu. A threshold selection method from gray-level histograms. \emph{IEEE Trans.\ Systems, Man, and Cybernetics} 9(1):62--66, 1979.
 \bibitem{lorensen1987} W.~E.~Lorensen and H.~E.~Cline. Marching cubes: a high resolution 3D surface construction algorithm. \emph{SIGGRAPH} 21(4):163--169, 1987.
 \bibitem{douglas1973} D.~H.~Douglas and T.~K.~Peucker. Algorithms for the reduction of the number of points required to represent a digitized line or its caricature. \emph{Cartographica} 10(2):112--122, 1973.
 \bibitem{vanderwalt2014} S.~van der Walt et al. scikit-image: image processing in Python. \emph{PeerJ} 2:e453, 2014.
+\bibitem{manjon2026} J.~V.~Manj\'on et al. Ultra-high resolution multimodal MRI densely labelled holistic structural brain atlas. \emph{Scientific Reports} 16:9457, 2026. doi:10.1038/s41598-026-40186-2. Preprint: arXiv:2501.16879.
+\bibitem{vanessen2013} D.~C.~Van Essen et al. The WU-Minn Human Connectome Project: an overview. \emph{NeuroImage} 80:62--79, 2013.
+\bibitem{dice1945} L.~R.~Dice. Measures of the amount of ecologic association between species. \emph{Ecology} 26(3):297--302, 1945.
+\bibitem{rorden2012} C.~Rorden et al. Age-specific CT and MRI templates for spatial normalization. \emph{NeuroImage} 61(4):957--965, 2012. doi:10.1016/j.neuroimage.2012.03.020.
+\bibitem{iaccarino2022} L.~Iaccarino et al. rPOP: Robust PET-only processing of community acquired heterogeneous amyloid-PET data. \emph{NeuroImage} 246:118775, 2022. doi:10.1016/j.neuroimage.2021.118775.
 \end{thebibliography}
 
 \appendix
 \section{Repository map}
-\begin{lstlisting}
-config/sections.json      every parameter
-data/                     planes file (10 MB), checksum, licence note
+\begin{lstlisting}[escapechar=|]
+config/sections.json      WSI: every parameter
+config/mri.json           MRI: every parameter
+config/ct.json            CT: every parameter
+config/pet.json           PET: every parameter
+data/                     planes files, checksums, LICENSE-clinical-ct.txt,
+                          licence note (README.md)
+medfig/config.py          paths; one configuration file per modality
+medfig/vector.py          shared: trace, smooth, SVG path data; round_mask
+medfig/stack.py           shared: 3D stack CSS, markup, page template
+medfig/nifti.py           small NIfTI-1 reader (MRI, CT, PET)
+medfig/scan.py            shared by MRI, CT, PET: orientation, grid, frame,
+                          markers, SVG text, thumbnails, stack page, captures
 medfig/extract.py         S1   stream planes from the .nii.gz
 medfig/sections.py        S2-S7 rasters -> vector SVG, shared frame, markers
 medfig/icons.py           S8   slide icons
@@ -309,9 +1211,28 @@ medfig/web.py             S9   stack page, CSS, markup snippet
 medfig/render.py          S9   frames, frame sheet, end states, GIF, figures S7-S8
 medfig/figures.py         report figures S1-S6 and numbers.json
 medfig/overview.py        Figure 1
-medfig/report.py          report/numbers.tex
-medfig/site_export.py     copy products into a host site
-tests/                    checks and reference SVGs
+medfig/mri/extract.py     M1   cut planes from the template volumes
+medfig/mri/slices.py      M2-M6 labels -> classes -> vector SVG, frame, markers
+medfig/mri/icons.py       M7   scan thumbnails
+medfig/mri/web.py         M7   stack page, CSS, markup snippet
+medfig/mri/figures.py     M8   report figures M1-M5, pairing, mri_numbers.json
+medfig/mri/render.py      M8   frames, frame sheet, end states, GIF, figures M6-M7
+medfig/ct/extract.py      C1   3D intracranial mask; planes on the MRI grid
+medfig/ct/slices.py       C2-C6 HU -> ring, brain, CSF -> SVG; frame, markers
+medfig/ct/icons.py        C7   scan thumbnails
+medfig/ct/web.py          C7   stack page (reuse)
+medfig/ct/figures.py      C8   report figures C1-C5, pairing, ct_numbers.json
+medfig/ct/render.py       C8   frames, frame sheet, end states, figures C6-C7
+medfig/pet/extract.py     P1   native planes; reference means in 3D
+medfig/pet/slices.py      P2-P6 SUVR -> bands in the MRI mask -> SVG; key
+medfig/pet/icons.py       P7   scan thumbnails of each series
+medfig/pet/web.py         P7   stack page of each series (reuse)
+medfig/pet/figures.py     P8   report figures P1-P3, pet_numbers.json
+medfig/pet/render.py      P8   frames, end states, figures P6-P7
+medfig/report.py          report/numbers.tex (every modality)
+medfig/site_export.py     copy WSI products into a host site
+tests/                    checks; reference copies: reference/ (WSI sections,
+                          stack page), reference/mri, ct, pet (the slices)
 report/report.tex         this report
 scripts/dgx_setup.sh      environment setup
 \end{lstlisting}

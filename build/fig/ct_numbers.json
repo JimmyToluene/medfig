@@ -1,0 +1,151 @@
+{
+ "license": "Clinical Toolbox CT template (Rorden et al., NeuroImage 2012), BSD 2-Clause",
+ "example_k": 2,
+ "example_y_mm": -22,
+ "planes_shape": [
+  22,
+  362,
+  362
+ ],
+ "voxel_mm": 0.5,
+ "ct": {
+  "origin_mm": [
+   -90.0,
+   -125.0,
+   -71.0
+  ],
+  "dims": [
+   181,
+   217,
+   181
+  ],
+  "vs": 1.0,
+  "z_min_mm": -71.0
+ },
+ "icv_ml": 1987.8,
+ "hu": {
+  "soft_window": [
+   -20,
+   100
+  ],
+  "erode_vox": 3,
+  "grow_from": -60,
+  "bone": 400,
+  "outside": -1024
+ },
+ "cut_row": 359,
+ "closing_added_px": 607,
+ "ring_dropped_px": 1221,
+ "bone_px": 12400,
+ "icv_px": 61917,
+ "csf_px": 3288,
+ "pairing": [
+  {
+   "k": 1,
+   "y_mm": 8,
+   "dice_icv": 0.954,
+   "dice_mri_mask": 0.927,
+   "ct_brain_mm2": 13727,
+   "holi_icv_mm2": 12514
+  },
+  {
+   "k": 2,
+   "y_mm": -22,
+   "dice_icv": 0.965,
+   "dice_mri_mask": 0.942,
+   "ct_brain_mm2": 15475,
+   "holi_icv_mm2": 14524
+  },
+  {
+   "k": 3,
+   "y_mm": -64,
+   "dice_icv": 0.959,
+   "dice_mri_mask": 0.948,
+   "ct_brain_mm2": 14657,
+   "holi_icv_mm2": 13511
+  }
+ ],
+ "area_mm2": [
+  {
+   "k": 1,
+   "y_mm": 8,
+   "ring": 16156,
+   "brain": 13727,
+   "csf": 707
+  },
+  {
+   "k": 2,
+   "y_mm": -22,
+   "ring": 18428,
+   "brain": 15475,
+   "csf": 807
+  },
+  {
+   "k": 3,
+   "y_mm": -64,
+   "ring": 18348,
+   "brain": 14657,
+   "csf": 130
+  }
+ ],
+ "bone_mm2": [
+  {
+   "k": 1,
+   "y_mm": 8,
+   "bone": 2429
+  },
+  {
+   "k": 2,
+   "y_mm": -22,
+   "bone": 2953
+  },
+  {
+   "k": 3,
+   "y_mm": -64,
+   "bone": 3691
+  }
+ ],
+ "viewBox": [
+  0,
+  0,
+  557,
+  569
+ ],
+ "mm_per_unit": 0.3,
+ "frame_mm": [
+  83.5,
+  99.5
+ ],
+ "cut_z_mm": -71.0,
+ "roi": [
+  {
+   "k": 1,
+   "roi": "left putamen",
+   "roi_mm": [
+    -22.2,
+    -1.7
+   ]
+  },
+  {
+   "k": 2,
+   "roi": "left hippocampus",
+   "roi_mm": [
+    -28.2,
+    -16.4
+   ]
+  },
+  {
+   "k": 3,
+   "roi": "left cerebellar hemisphere",
+   "roi_mm": [
+    -24.3,
+    -37.0
+   ]
+  }
+ ],
+ "svg_kb": {
+  "slice_1.svg": 7.5,
+  "slice_2.svg": 13.1,
+  "slice_3.svg": 7.1
+ }
+}

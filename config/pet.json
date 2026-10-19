@@ -1,0 +1,69 @@
+{
+ "_doc": "Configuration of the medfig PET pipeline (amyloid PET, florbetaben, an amyloid-negative and an amyloid-positive template). Units: mm in MNI152 space unless the key or this note says otherwise. SUVR: PET value divided by the mean over the reference region. In raster and vector, pixels (px) are 0.5 mm (the grid of the MRI planes file). mask_round_sigma and dp_epsilon are in pixels. contour_sigma and min_contour_points are in contour points. pad_units, roi_units and outline_width are in frame units; one frame unit is unit_mm. In stack_3d, px are CSS pixels of the page. orientation: radiological (the left of the patient on the right of the image, as in clinical viewers) or neurological (left on the left, as in the WSI figure). The brain outline is the MRI brain mask (config/mri.json), so a PET slice and an MRI slice of the same y have the same outline and frame.",
+ "orientation": "radiological",
+ "source": {
+  "name": "rPOP amyloid PET templates",
+  "url": "https://github.com/LeoIacca/rPOP",
+  "volumes": {"fbb_neg": "Template_FBB_neg.nii", "fbb_pos": "Template_FBB_pos.nii"},
+  "planes_npz": "data/rpop_fbb_coronal_2mm_sel.npz",
+  "candidate_y_mm": [64, 56, 48, 40, 32, 24, 16, 8, 0, -8, -16, -22, -24, -32, -40, -48, -56, -64, -72, -80, -88, -96],
+  "license": "rPOP florbetaben templates (Iaccarino et al., NeuroImage 2022), CC BY-NC-SA 4.0",
+  "outline_credit": "holiAtlas (Manjón et al., Sci Rep 2026), CC BY-NC-SA 4.0"
+ },
+ "series": [
+  {"key": "pos", "channel": "fbb_pos", "name": "amyloid-positive", "label": "florbetaben template of amyloid-positive scans"},
+  {"key": "neg", "channel": "fbb_neg", "name": "amyloid-negative", "label": "florbetaben template of amyloid-negative scans"}
+ ],
+ "reference": {
+  "_doc": "SUVR reference: the voxels of the holiAtlas tissue atlas with these labels (cerebellar GM and cerebellar WM: the whole cerebellum). PET is sampled linearly at the centre of each voxel; points outside the PET field of view (value 0) are left out.",
+  "name": "whole cerebellum",
+  "tissue_labels": [5, 6],
+  "tissue_volume": "tissue_atlas.nii.gz"
+ },
+ "slices": [
+  {"k": 1, "y_mm": 8,   "label": "frontal lobe and striatum",     "roi": "left putamen",               "roi_labels": [33]},
+  {"k": 2, "y_mm": -22, "label": "thalamus and hippocampus",      "roi": "left hippocampus",           "roi_labels": [21]},
+  {"k": 3, "y_mm": -64, "label": "occipital lobe and cerebellum", "roi": "left cerebellar hemisphere", "roi_labels": [45, 51]}
+ ],
+ "bands": {
+  "_doc": "Uptake is drawn as nested bands: band k holds the pixels of the brain mask with smoothed SUVR >= edges[k]. The area under edges[0] has the first colour. smooth_sigma_mm: Gaussian applied to the SUVR plane before the cut.",
+  "edges": [1.0, 1.3, 1.6, 1.9],
+  "smooth_sigma_mm": 1.0,
+  "unit": "SUVR"
+ },
+ "figures": {
+  "_doc": "Report figures only (pet figures). suvr_max: top of the grey scale of the SUVR panels. example_k: the slice of the worked example (MEDFIG_PET_EXAMPLE overrides it). hist_bins: bins of the SUVR histogram between 0 and suvr_max.",
+  "suvr_max": 2.6,
+  "example_k": 2,
+  "hist_bins": 52
+ },
+ "raster": {
+  "mask_round_sigma": 1.0,
+  "min_object_px": 30,
+  "roi_min_px": 40
+ },
+ "vector": {
+  "unit_mm": 0.3,
+  "pad_units": 24,
+  "contour_sigma": 1.6,
+  "dp_epsilon": 0.25,
+  "min_contour_points": 12,
+  "roi_units": 82,
+  "outline_width": 4.4
+ },
+ "key": {"swatch_w": 30, "swatch_h": 12, "font_px": 9},
+ "palette": {"bands": ["#6f6a8a", "#5b43a8", "#c0458a", "#f08a4b", "#f7d35c"], "key_text": "#2b2640",
+             "outline": "#5b43a8", "accent": "#5b43a8", "accent_ink": "#ffffff", "card": "#f1f4fa", "card_edge": "#c4b2ee",
+             "label": "#e2deee", "label_bar": "#a9a6bd", "screen": "#2b2640", "page": "#faf9f5"},
+ "stack_3d": {
+  "perspective_px": 1000,
+  "perspective_origin": "20% 30%",
+  "transform_origin": "45% 55%",
+  "case": {"translate_x": "38%", "rotate_y_deg": 42, "rotate_x_deg": 6, "scale": 0.82, "depth_step_px": 95},
+  "phone": {"max_width_px": 900, "translate_x": "20%", "rotate_y_deg": 46, "scale": 0.6, "depth_step_px": 55},
+  "start_depth_px": -420,
+  "section_delay_s": [0, 0.12, 0.26],
+  "marker_delay_s": [0.35, 0.62, 0.76],
+  "back_filter": ["none", "saturate(.82) brightness(1.03)", "saturate(.66) brightness(1.06)"]
+ }
+}

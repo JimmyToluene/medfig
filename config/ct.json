@@ -1,0 +1,64 @@
+{
+ "_doc": "Configuration of the medfig CT pipeline (head CT: the bone ring and the brain, no scalp). Units: mm in MNI152 space unless the key or this note says otherwise. HU: Hounsfield units. In raster and vector, pixels (px) are 0.5 mm (the grid of the MRI planes file). mask_round_sigma, suture_close_px, cut_pad_px and dp_epsilon are in pixels; erode_vox is in voxels of the CT volume. contour_sigma and min_contour_points are in contour points. pad_units, roi_units, outline_width and the screen values are in frame units; one frame unit is unit_mm. In stack_3d, px are CSS pixels of the page. orientation: radiological (the left of the patient on the right of the image, as in clinical viewers) or neurological (left on the left, as in the WSI figure).",
+ "orientation": "radiological",
+ "source": {
+  "name": "Clinical Toolbox CT template",
+  "url": "https://github.com/neurolabusc/Clinical",
+  "volume": "scct_unsmooth.nii",
+  "planes_npz": "data/clinical_ct_coronal_500um_sel.npz",
+  "candidate_y_mm": [64, 56, 48, 40, 32, 24, 16, 8, 0, -8, -16, -22, -24, -32, -40, -48, -56, -64, -72, -80, -88, -96],
+  "license": "Clinical Toolbox CT template (Rorden et al., NeuroImage 2012), BSD 2-Clause",
+  "marker_credit": "holiAtlas (Manjón et al., Sci Rep 2026), CC BY-NC-SA 4.0"
+ },
+ "slices": [
+  {"k": 1, "y_mm": 8,   "label": "frontal lobe and striatum",     "roi": "left putamen",               "roi_labels": [33]},
+  {"k": 2, "y_mm": -22, "label": "thalamus and hippocampus",      "roi": "left hippocampus",           "roi_labels": [21]},
+  {"k": 3, "y_mm": -64, "label": "occipital lobe and cerebellum", "roi": "left cerebellar hemisphere", "roi_labels": [45, 51]}
+ ],
+ "hu": {
+  "_doc": "Thresholds on the CT template. The intracranial mask is made in 3D by `ct extract` and stored in the planes file: voxels in soft_window are eroded by erode_vox, the largest part is kept and grown back by erode_vox + 1 voxels inside grow_from <= HU < bone, then holes are filled along each axis. bone: HU above it is bone. csf: inside the intracranial mask, HU below it is CSF (ventricles, cisterns).",
+  "soft_window": [-20, 100],
+  "erode_vox": 3,
+  "grow_from": -60,
+  "bone": 400,
+  "csf": 7,
+  "outside": -1024
+ },
+ "figures": {
+  "_doc": "Report figures only (ct figures). Grey windows of the HU panels, in HU. example_k: the slice of the worked example (MEDFIG_CT_EXAMPLE overrides it).",
+  "brain_window_hu": [0, 80],
+  "bone_window_hu": [-200, 1400],
+  "example_k": 2
+ },
+ "raster": {
+  "suture_close_px": 2,
+  "cut_pad_px": 16,
+  "mask_round_sigma": 1.0,
+  "min_object_px": 30,
+  "roi_min_px": 40
+ },
+ "vector": {
+  "unit_mm": 0.3,
+  "pad_units": 24,
+  "contour_sigma": 1.6,
+  "dp_epsilon": 0.25,
+  "min_contour_points": 12,
+  "roi_units": 82,
+  "outline_width": 4.4
+ },
+ "screen": {"inset_units": 6, "radius_units": 20},
+ "palette": {"bone": "#ffffff", "brain": "#a9a6bd", "csf": "#3d3857", "screen": "#2b2640",
+             "outline": "#c4b2ee", "accent": "#5b43a8", "accent_ink": "#ffffff", "card": "#f1f4fa", "card_edge": "#c4b2ee",
+             "label": "#e2deee", "label_bar": "#a9a6bd", "page": "#faf9f5"},
+ "stack_3d": {
+  "perspective_px": 1000,
+  "perspective_origin": "20% 30%",
+  "transform_origin": "45% 55%",
+  "case": {"translate_x": "38%", "rotate_y_deg": 42, "rotate_x_deg": 6, "scale": 0.82, "depth_step_px": 95},
+  "phone": {"max_width_px": 900, "translate_x": "20%", "rotate_y_deg": 46, "scale": 0.6, "depth_step_px": 55},
+  "start_depth_px": -420,
+  "section_delay_s": [0, 0.12, 0.26],
+  "marker_delay_s": [0.35, 0.62, 0.76],
+  "back_filter": ["none", "saturate(.82) brightness(1.03)", "saturate(.66) brightness(1.06)"]
+ }
+}

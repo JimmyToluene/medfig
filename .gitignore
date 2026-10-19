@@ -13,3 +13,4 @@ report/*.toc
 report/*.synctex.gz
 *.nii.gz
 *.mnc
+.venv/

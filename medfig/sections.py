@@ -10,7 +10,7 @@ S3  tissue mask: blur, intensity < limit, drop specks, fill small holes, one ope
 S4  grey/white: local mean inside tissue, Otsu of values above the floor (leaves out the dark cerebellar
     granular layer), minus an offset. White matter = tissue brighter than the threshold (Merker: white matter is pale).
 S5  round the masks (blur, cut at 0.5), trace contours (marching squares), smooth them (Gaussian, wrap),
-    simplify them (Douglas-Peucker).
+    simplify them (Douglas-Peucker). Tracing, smoothing and path data are in vector.py (shared with MRI).
 S6  one frame for all sections: same scale, union bounding box plus padding; block centres mm -> units.
 S7  write SVG: grey matter fill (even-odd, so holes stay open), white matter fill, outline stroke.
 """
@@ -19,10 +19,11 @@ import sys
 
 import numpy as np
 from scipy import ndimage as ndi
-from skimage import measure, morphology
+from skimage import morphology
 from skimage.filters import threshold_otsu
 
 from .config import OUT, load, planes_path
+from .vector import contours, path_d, smooth_contour  # noqa: F401  (figures.py and the tests use them from here)
 
 
 def load_planes(cfg):
@@ -75,31 +76,6 @@ def masks(a, r):
     wm, _, otsu, thr = grey_white(a, tissue, r)
     t, w = round_masks(tissue, wm, r)
     return t, w, {"otsu": round(otsu, 2), "threshold": round(thr, 2)}
-
-
-def smooth_contour(c, v):
-    """S5, second half. Closed contour (row, col) -> smoothed, simplified (x, y) polygon, or None."""
-    if len(c) < v["min_contour_points"]:
-        return None
-    x = ndi.gaussian_filter1d(c[:, 1], v["contour_sigma"], mode="wrap")
-    y = ndi.gaussian_filter1d(c[:, 0], v["contour_sigma"], mode="wrap")
-    p = measure.approximate_polygon(np.c_[x, y], v["dp_epsilon"])
-    return p if len(p) >= 4 else None
-
-
-def contours(mask):
-    """Marching squares at 0.5. Padding closes contours at the image edge."""
-    return [c - 1 for c in measure.find_contours(np.pad(mask, 1).astype(float), 0.5)]
-
-
-def path_d(mask, ox, oy, v):
-    out = []
-    for c in contours(mask):
-        p = smooth_contour(c, v)
-        if p is None:
-            continue
-        out.append("M" + " L".join(f"{x - ox:.1f} {y - oy:.1f}" for x, y in p) + "Z")
-    return "".join(out)
 
 
 def build(cfg=None, log=print):
